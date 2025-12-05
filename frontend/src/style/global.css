@@ -1,0 +1,100 @@
+/*-------------------------------定义全局的css样式----------------------------*/
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+/*-------------------------------统一设置页面的滚动条样式----------------------------*/
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #107dec;
+  border-radius: 10px;
+}
+
+/*-------------------------------全局的卡片组件样式----------------------------*/
+.card {
+  border: solid 1px #358fec;
+  margin: 5px;
+  border-radius: 5px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/*-------------------------------暗黑模式切换----------------------------------*/
+:root {
+  --BackgroundColor: #ffffff;
+  --NoBackgroundColor: #131313;
+  --BgColor: #f1f1f1;
+/*----------修改element-plus主题色----------------*/
+  --el-color-primary: #1471ea;
+}
+
+html.dark {
+  --BackgroundColor: #131313;
+  --NoBackgroundColor: #ffffff;
+  --BgColor: #3e3d3d;
+}
+
+/*----------------------------------虚拟进度条样式------------------------------------------*/
+#nprogress .bar {
+  background: #358fec;
+  height: 3px;
+}
+
+/*-------------------------------环境、用例、套件、计划统一左侧样式----------------------------*/
+.left_box {
+  margin: 5px;
+  width: 300px;
+
+  .title_box {
+    display: flex;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    border-bottom: solid 1px #358fec;
+
+    .name {
+      font-weight: bold;
+      font-size: 18px;
+      margin: 0 10px;
+    }
+  }
+
+  .el-menu {
+    border: none;
+
+    .el-menu-item {
+      height: 35px;
+      line-height: 35px;
+    }
+  }
+}
+
+/* 暗黑模式下ace编辑器样式 */
+.dark {
+  .ace_editor {
+    background: #1a1a1a;
+    color: #ffffff;
+
+    .ace_gutter-active-line {
+      background-color: #262727;
+    }
+
+    .ace_gutter {
+      background: #252526;
+      color: #ffffff;
+    }
+
+    .ace_cursor {
+      border-color: #ffffff;
+    }
+  }
+}

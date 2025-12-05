@@ -1,0 +1,30 @@
+.main_box {
+
+  .box {
+    flex: 1;
+    padding: 10px;
+  }
+
+  .title {
+    font-weight: bold;
+    text-align: center;
+    height: 40px;
+    line-height: 40px;
+  }
+
+  .script_code {
+    display: flex;
+
+    .code {
+      flex: 1;
+    }
+
+    .mod {
+      width: 300px;
+    }
+  }
+
+  .btns {
+    text-align: center;
+  }
+}

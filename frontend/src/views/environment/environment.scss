@@ -1,0 +1,19 @@
+.main_box {
+  height: 90%;
+  display: flex;
+
+  // 中间样式
+  .center_box {
+    width: 800px;
+  }
+
+  // 右侧样式
+  .right_box {
+    flex: 1;
+  }
+}
+.button{
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}

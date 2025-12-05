@@ -1,0 +1,21 @@
+.script_code {
+  display: flex;
+
+  .code {
+    flex: 1;
+  }
+
+  .mod {
+    width: 300px;
+  }
+}
+
+.btns {
+  text-align: center;
+}
+
+.title {
+  text-align: center;
+  font-size: 20px;
+  margin-bottom: 10px;
+}

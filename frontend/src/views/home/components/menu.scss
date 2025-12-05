@@ -1,0 +1,49 @@
+.logo {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  //logo图标样式
+  img {
+    height: 50px;
+    width: 50px;
+  }
+
+  //标题样式
+  .title {
+    margin-left: 15px;
+    font-size: 16px;
+    font-weight: bold;
+    overflow: hidden; /* 确保文本不溢出 */
+    white-space: nowrap; /* 防止文本换行 */
+  }
+}
+
+.el-menu {
+  border-right: none;
+  height: calc(100vh - 60px);
+  overflow: auto;
+}
+
+//自定义菜单的样式
+.el-menu-item {
+  border-radius: 10px;
+  width: 180px;
+  height: 50px;
+  margin-top: 5px;
+  margin-left: 10px;
+  //鼠标悬浮时样式
+  &:hover {
+    background: none;
+    color: var(--el-color-primary);
+    box-shadow: inset 0 0 3px var(--el-color-primary);
+  }
+
+  //菜单激活时的样式
+  &.is-active {
+    height: 50px;
+    color: var(--el-color-primary);
+    border: 1px dashed var(--el-color-primary);
+    box-shadow: inset 0 0 3px var(--el-color-primary);
+  }
+}

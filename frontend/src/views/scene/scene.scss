@@ -1,0 +1,19 @@
+.main_box {
+  height: calc(100% - 42px);
+  display: flex;
+
+  // 右侧样式
+  .right_box {
+    flex: 1;
+    padding: 10px;
+
+    .name_edit {
+      display: flex;
+    }
+  }
+}
+.title {
+  text-align: center;
+  font-size: 20px;
+  margin-bottom: 10px;
+}

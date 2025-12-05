@@ -1,0 +1,56 @@
+# 服务，表示要启动的容器服务
+services:
+  # 每个服务的名字就是容器的名字
+  # 拉取官方redis镜像7.4.6版本
+  redis:
+    image: redis:7.4.6
+    restart: always
+    container_name: py_redis
+    environment:
+      REDIS_PASSWORD: 123456py
+      REDIS_PORT: 6379
+
+  # 拉取官方mysql镜像8.4.2版本
+  mysql:
+    image: mysql:8.4.2
+    ports:
+      - "9527:3306"
+    restart: always
+    container_name: py_mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456py
+      MYSQL_DATABASE: django
+    volumes:
+      - mysql:/var/lib/mysql
+
+  # 创建django后端镜像
+  backend:
+    depends_on:
+      - redis
+      - mysql
+    build: ./backend
+    image: py_backend
+    container_name: py_backend
+    restart: always
+    volumes:
+      - backend_logs:/app/logs
+
+  # 创建nginx镜像
+  nginx:
+    depends_on:
+      - backend
+    build: ./nginx
+    image: py_nginx
+    container_name: py_nginx
+    ports:
+      - "5001:80"
+      - "5002:81"
+    volumes:
+      - nginx_logs:/var/log
+
+# 全局声明
+volumes:
+  mysql:
+  backend_logs:
+  nginx_logs:

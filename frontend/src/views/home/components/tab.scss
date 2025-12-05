@@ -1,0 +1,17 @@
+.tabs {
+  height: 40px;
+  z-index: 99;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .button-wrapper {
+    margin-top: 5px;
+  }
+
+  .tabs-area {
+    overflow: hidden;
+    margin-top: 15px;
+  }
+}
