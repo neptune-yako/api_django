@@ -10,14 +10,13 @@ WORKDIR /app
 COPY . .
 
 # 安装必要的库
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories && \
-    apk update && \
+RUN apk update && \
     apk upgrade && \
     apk add --no-cache tzdata mariadb-dev gcc libc-dev && \
     cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone && \
-    python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip && \
-    pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt && \
+    python -m pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
     chmod 755 ./entrypoint.sh
 
 # 创建日志挂载点避免容器越来越大

@@ -32,7 +32,7 @@ class User(AbstractUser):
     nickname = models.CharField(verbose_name="用户昵称", null=True, blank=True, max_length=20, default="")
     update_time = models.DateTimeField(auto_now=True, verbose_name="更新日期")
     roles = models.ManyToManyField(Role, verbose_name="用户角色", related_name='user', blank=True)
-    objects = models.Manager()
+    # objects = models.Manager()
 
     # 通过createsuperuser管理命令创建用户时将输入邮箱email字段改成mobile字段
     REQUIRED_FIELDS = ['mobile']

@@ -91,10 +91,12 @@ class RegisterView(viewsets.GenericViewSet):
             exists = User.objects.filter(email=email).exists()
             if exists:
                 return Response({'detail': '当前邮箱已被注册！'}, status=status.HTTP_400_BAD_REQUEST)
-            # 创建用户
-            new_user = User(username=username, password=password, email=email, mobile=mobile,
-                                                is_superuser=request.data.get('is_superuser', False), date_joined=timezone.now(),
-                                                nickname=nickname, is_staff=request.data.get('is_staff', False), is_active=request.data.get('is_active', True))
+            # 创建用户（不直接设置密码）
+            new_user = User(username=username, email=email, mobile=mobile,
+                            is_superuser=request.data.get('is_superuser', False), date_joined=timezone.now(),
+                            nickname=nickname, is_staff=request.data.get('is_staff', False), is_active=request.data.get('is_active', True))
+            # 使用Django的set_password方法正确加密密码
+            new_user.set_password(password)
             # 保存用户
             new_user.save()
             response = {"username": new_user.username, 'nickname': new_user.nickname, 'email': new_user.email,

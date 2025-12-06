@@ -1,0 +1,74 @@
+# ========================
+# 前端通用 (Node/Vue/Vite)
+# ========================
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ========================
+# 后端通用 (Python/Django)
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Django 特定
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+
+# ========================
+# IDE 和 系统文件
+# ========================
+.idea/
+.vscode/
+*.swp
+.DS_Store
+# ==========================
+# 前端构建产物 (坚决屏蔽)
+# ==========================
+dist/
+node_modules/
+frontend/dist/  # 以防万一写个全路径
+
+# ==========================
+# 后端收集的静态文件 (坚决屏蔽)
+# ==========================
+# 你的 Django settings.py 里 STATIC_ROOT 指向的那个文件夹名
+staticfiles/
+backend/staticfiles/
+
+# ==========================
+# Nginx 下的副本 (坚决屏蔽)
+# ==========================
+# 因为这些是你为了跑 Docker 手动或自动复制过去的，不需要存
+nginx/dist/
+nginx/static/
+nginx/html/

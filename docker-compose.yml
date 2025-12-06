@@ -1,16 +1,17 @@
-# 服务，表示要启动的容器服务
+version: '3.8'
+
 services:
-  # 每个服务的名字就是容器的名字
-  # 拉取官方redis镜像7.4.6版本
+  # 1. Redis 服务
   redis:
     image: redis:7.4.6
     restart: always
     container_name: py_redis
-    environment:
-      REDIS_PASSWORD: 123456py
-      REDIS_PORT: 6379
+    # 修正: 官方镜像需要用命令设置密码
+    command: redis-server --requirepass 123456py
+    ports:
+      - "6379:6379"  # 建议: 映射端口方便你用RDM/Navicat连接查看
 
-  # 拉取官方mysql镜像8.4.2版本
+  # 2. MySQL 服务
   mysql:
     image: mysql:8.4.2
     ports:
@@ -24,22 +25,29 @@ services:
     volumes:
       - mysql:/var/lib/mysql
 
-  # 创建django后端镜像
+  # 3. Django 后端服务
   backend:
     depends_on:
       - redis
       - mysql
-    build: ./backend
+    # 注意: 这里意味着你的 Dockerfile 必须在 backend 文件夹里
+    build: ./backend 
     image: py_backend
     container_name: py_backend
     restart: always
+    # 你的后端在 Dockerfile 里 EXPOSE 8000，但这里没映射端口
+    # 如果你是想让 Nginx 转发给它，这样是可以的（内部通信）
+    # 但为了调试方便，通常建议暂时加上端口映射:
+    ports:
+      - "8000:8000"
     volumes:
       - backend_logs:/app/logs
 
-  # 创建nginx镜像
+  # 4. Nginx 服务
   nginx:
     depends_on:
       - backend
+    # 注意: 这里意味着你必须有一个 nginx 文件夹，且里面有 Dockerfile
     build: ./nginx
     image: py_nginx
     container_name: py_nginx
@@ -49,7 +57,7 @@ services:
     volumes:
       - nginx_logs:/var/log
 
-# 全局声明
+# 全局数据卷声明
 volumes:
   mysql:
   backend_logs:

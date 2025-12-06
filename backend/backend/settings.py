@@ -29,6 +29,10 @@ DEBUG = True
 # 访问域名设置
 ALLOWED_HOSTS = ['*']
 
+# 【新增】信任 ngrok 的来源，防止登录时报 CSRF 错误
+# 注意：这里必须带上 https://
+CSRF_TRUSTED_ORIGINS = ['https://*.ngrok-free.app']
+
 # 注册app应用
 # Application definition
 INSTALLED_APPS = [
@@ -114,29 +118,77 @@ WSGI_APPLICATION = "backend.wsgi.application"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 # 数据库配置
 if DEBUG:
+    # DATABASES = {
+    #     # 开发环境，默认使用mysql数据库
+    #     'default': {
+    #         'ENGINE': 'django.db.backends.mysql',
+    #         'NAME': 'django',
+    #         'USER': 'root',
+    #         'PASSWORD': '123456py',
+    #         'HOST': '192.168.27.132',
+    #         'PORT': '3306',
+    #     }
+    # }
+    # docker环境
+    # DATABASES = {
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.mysql',
+    #     'NAME': 'django',          # 对应 docker-compose 中 MYSQL_DATABASE
+    #     'USER': 'root',
+    #     'PASSWORD': '123456py',    # 对应 docker-compose 中 MYSQL_ROOT_PASSWORD
+    #     'HOST': 'mysql',           # 【关键】这里改成容器服务名 "mysql"
+    #     'PORT': '3306',            # 容器内部端口是 3306
+    #     }
+    # }
+    # 开发环境
     DATABASES = {
-        # 开发环境，默认使用mysql数据库
         'default': {
             'ENGINE': 'django.db.backends.mysql',
             'NAME': 'django',
             'USER': 'root',
             'PASSWORD': '123456py',
-            'HOST': '192.168.27.132',
-            'PORT': '3306',
+            # 👇 修改点 1：必须用本机回环地址
+            'HOST': '127.0.0.1', 
+            # 👇 修改点 2：必须用 Docker 映射出来的外部端口 (你的配置是 9527)
+            'PORT': '9527',      
         }
-    }
+    }   
 else:
+    # DATABASES = {
+    #     # 线上环境，默认使用mysql数据库
+    #     'default': {
+    #         'ENGINE': 'django.db.backends.mysql',
+    #         'NAME': 'django',
+    #         'USER': 'root',
+    #         'PASSWORD': '123456py',
+    #         'HOST': '192.168.27.132',
+    #         'PORT': '3306',
+    #     }
+    # }
+    # # docker环境
+    # DATABASES = {
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.mysql',
+    #     'NAME': 'django',          # 对应 docker-compose 中 MYSQL_DATABASE
+    #     'USER': 'root',
+    #     'PASSWORD': '123456py',    # 对应 docker-compose 中 MYSQL_ROOT_PASSWORD
+    #     'HOST': 'mysql',           # 【关键】这里改成容器服务名 "mysql"
+    #     'PORT': '3306',            # 容器内部端口是 3306
+    #     }
+    # }
+        # 开发环境
     DATABASES = {
-        # 线上环境，默认使用mysql数据库
         'default': {
             'ENGINE': 'django.db.backends.mysql',
             'NAME': 'django',
             'USER': 'root',
             'PASSWORD': '123456py',
-            'HOST': '192.168.27.132',
-            'PORT': '3306',
+            # 👇 修改点 1：必须用本机回环地址
+            'HOST': '127.0.0.1', 
+            # 👇 修改点 2：必须用 Docker 映射出来的外部端口 (你的配置是 9527)
+            'PORT': '9527',      
         }
-    }
+    }   
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -320,7 +372,14 @@ CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 # 任务队列配置，生产环境使用redis，测试环境使用内存，服务器192.168.27.132，密码123456py
-CELERY_BROKER_URL = 'redis://:123456py@192.168.27.132:6379/4'
+# CELERY_BROKER_URL = 'redis://:123456py@192.168.27.132:6379/4'
+# 注意：redis 是服务名，6379 是容器内部端口
+# docker环境
+# CELERY_BROKER_URL = 'redis://:123456py@redis:6379/4'
+# ------
+# 开发环境
+CELERY_BROKER_URL = 'redis://:123456py@127.0.0.1:6379/4'
+# -------
 # 使用django-orm作为结果存储
 CELERY_RESULT_BACKEND = 'django-db'
 # 使用django_celery_beat插件用来动态配置任务
