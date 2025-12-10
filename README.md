@@ -104,3 +104,24 @@ http://localhost:8080
 http://120.26.11.168:30
 
 帮助文档的源码地址：https://gitee.com/pytests/docs
+
+
+
+#### 后端django启动命令
+```bash
+python manage.py runserver
+```
+
+#### 后端异步任务启动命令
+```bash
+# 启动celery-beat
+celery -A backend beat -l info
+# 启动celery-worker，Windows下命令增加参数-p threads/eventlet
+celery -A backend worker -l info -P threads
+celery -A backend worker -l info -P eventlet
+```
+
+#### 前端vue启动命令
+```bash
+yarn dev
+```

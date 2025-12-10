@@ -178,6 +178,13 @@ const routes = [
             title: '500',
             noTab: true
         }
+    },
+    //Jenkins页面
+    {
+    path: '/jenkins',
+    name: 'Jenkins',
+    component: () => import('@/views/jenkins/index.vue'),
+    meta: { title: 'Jenkins管理', icon: 'jenkins' }
     }
 ]
 

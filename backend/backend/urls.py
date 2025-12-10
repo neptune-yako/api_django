@@ -65,5 +65,7 @@ urlpatterns = [
     path('', include('scene.urls')),
     path('', include('plan.urls')),
     path('', include('bug.urls')),
-    path('', include('user.urls'))
+    path('', include('user.urls')),
+
+    path('', include('jenkins_integration.urls')),  # 添加jenkins路由
 ]

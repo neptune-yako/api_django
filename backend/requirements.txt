@@ -25,3 +25,4 @@ gevent
 flower
 django-celery-results
 eventlet
+python-jenkins

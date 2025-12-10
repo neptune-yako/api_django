@@ -67,7 +67,8 @@ INSTALLED_APPS = [
     "scene.apps.SceneConfig",
     "plan.apps.PlanConfig",
     "cronjob.apps.CronjobConfig",
-    "bug.apps.BugConfig"
+    "bug.apps.BugConfig",
+    'jenkins_integration.apps.JenkinsConfig',  # 添加jenkins应用
 ]
 
 # 注册中间件
@@ -564,3 +565,8 @@ SIMPLEUI_CONFIG = {
 
 # 打包后端静态文件，生产环境启用
 # STATIC_ROOT = BASE_DIR / 'static'
+
+# # Jenkins配置
+# JENKINS_URL = 'http://mg.morry.online/'
+# JENKINS_USERNAME = 'akko'
+# JENKINS_TOKEN = '11c0386c574f181a57a08776b21bb6ea06'
