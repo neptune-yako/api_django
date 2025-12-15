@@ -96,6 +96,15 @@ PENDING → RUNNING → SUCCESS/FAILURE/ABORTED/UNSTABLE
 - [ ] 支持启用/禁用定时构建任务
 
 
+
+---
+
+先从接口管理说起
+1、接口管理上面显示的应该是和Jenkins对接的API接口
+2、创建Jenkins任务的接口应该有confiig.xml在界面上可以配置
+3、更新Jenkins任务的接口应该在界面可以修改confiig.xml
+
+
 ---
 
 ### 2️⃣ Allure报告集成需求

@@ -1,0 +1,629 @@
+openapi: 3.0.3
+info:
+  title: Jenkins Job Management API
+  description: |
+    Jenkins Job CRUD 操作接口
+    
+    提供完整的 Jenkins Job 管理功能，包括创建、读取、更新、删除、XML 校验、复制、启用/禁用等操作。
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:8000
+    description: 本地开发服务器
+  - url: http://127.0.0.1:8000
+    description: 本地开发服务器（备用）
+
+tags:
+  - name: Connection
+    description: 连接测试相关接口
+  - name: Job Management
+    description: Job 管理相关接口
+  - name: Job Operations
+    description: Job 操作相关接口
+
+paths:
+  /api/jenkins/test/:
+    get:
+      tags:
+        - Connection
+      summary: 测试 Jenkins 连接
+      description: 测试与 Jenkins 服务器的连接状态，获取版本信息和用户信息
+      operationId: testJenkinsConnection
+      responses:
+        '200':
+          description: 连接成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: Jenkins连接成功
+                  data:
+                    type: object
+                    properties:
+                      version:
+                        type: string
+                        example: "2.440"
+                      user:
+                        type: object
+                        properties:
+                          fullName:
+                            type: string
+                            example: "akko"
+                          id:
+                            type: string
+                            example: "akko"
+        '500':
+          description: 连接失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/jenkins/jobs/:
+    get:
+      tags:
+        - Job Management
+      summary: 获取所有 Jobs
+      description: 获取 Jenkins 服务器上所有 Job 的列表
+      operationId: getAllJobs
+      responses:
+        '200':
+          description: 成功获取 Jobs 列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 成功获取 3 个 Jobs
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: "test-job"
+                        url:
+                          type: string
+                          example: "http://mg.morry.online/job/test-job/"
+                        color:
+                          type: string
+                          example: "blue"
+        '500':
+          description: 获取失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/jenkins/job/:
+    get:
+      tags:
+        - Job Management
+      summary: 获取 Job 信息或配置
+      description: 获取指定 Job 的详细信息（JSON）或 XML 配置
+      operationId: getJobInfo
+      parameters:
+        - name: job_name
+          in: query
+          required: true
+          description: Job 名称
+          schema:
+            type: string
+          example: my-test-job
+        - name: get_config
+          in: query
+          required: false
+          description: 是否获取 XML 配置（true/false）
+          schema:
+            type: string
+            enum: [true, false]
+          example: false
+      responses:
+        '200':
+          description: 成功获取 Job 信息
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 获取Job信息成功
+                  data:
+                    oneOf:
+                      - type: object
+                        description: Job 信息（get_config=false）
+                        properties:
+                          name:
+                            type: string
+                          url:
+                            type: string
+                          description:
+                            type: string
+                          buildable:
+                            type: boolean
+                          color:
+                            type: string
+                      - type: object
+                        description: Job XML 配置（get_config=true）
+                        properties:
+                          config_xml:
+                            type: string
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 获取失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Job Management
+      summary: 创建 Job
+      description: 使用 XML 配置创建新的 Jenkins Job
+      operationId: createJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - job_name
+                - config_xml
+              properties:
+                job_name:
+                  type: string
+                  description: Job 名称
+                  example: my-test-job
+                config_xml:
+                  type: string
+                  description: Job 的 XML 配置
+                  example: "<?xml version='1.1' encoding='UTF-8'?><project><description>测试任务</description><builders><hudson.tasks.Shell><command>echo 'Hello'</command></hudson.tasks.Shell></builders></project>"
+                force:
+                  type: boolean
+                  description: 强制创建（即使 XML 有警告）
+                  default: false
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 成功创建 Job [my-test-job]
+                  data:
+                    type: object
+                    properties:
+                      job_name:
+                        type: string
+                        example: my-test-job
+        '400':
+          description: 参数错误或 XML 格式错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 400
+                  message:
+                    type: string
+                    example: XML 格式错误，请修复后重试或使用 force=true 强制创建
+                  data:
+                    type: object
+                    properties:
+                      errors:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                            message:
+                              type: string
+                            line:
+                              type: integer
+        '500':
+          description: 创建失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Job Management
+      summary: 更新 Job 配置
+      description: 更新现有 Job 的 XML 配置
+      operationId: updateJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - job_name
+                - config_xml
+              properties:
+                job_name:
+                  type: string
+                  description: Job 名称
+                  example: my-test-job
+                config_xml:
+                  type: string
+                  description: 新的 XML 配置
+                  example: "<?xml version='1.1' encoding='UTF-8'?><project><description>更新后的描述</description><builders><hudson.tasks.Shell><command>echo 'Updated!'</command></hudson.tasks.Shell></builders></project>"
+                force:
+                  type: boolean
+                  description: 强制更新（即使 XML 有警告）
+                  default: false
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 成功更新 Job [my-test-job]
+                  data:
+                    type: object
+                    properties:
+                      job_name:
+                        type: string
+        '400':
+          description: 参数错误或 XML 格式错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 更新失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Job Management
+      summary: 删除 Job
+      description: 删除指定的 Jenkins Job
+      operationId: deleteJob
+      parameters:
+        - name: job_name
+          in: query
+          required: true
+          description: 要删除的 Job 名称
+          schema:
+            type: string
+          example: my-test-job
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 成功删除 Job [my-test-job]
+                  data:
+                    type: object
+                    properties:
+                      job_name:
+                        type: string
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 删除失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/jenkins/job/validate/:
+    post:
+      tags:
+        - Job Operations
+      summary: 校验 XML 配置
+      description: 校验 XML 配置格式是否正确（不实际创建 Job）
+      operationId: validateXML
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - config_xml
+              properties:
+                config_xml:
+                  type: string
+                  description: 要校验的 XML 配置
+                  example: "<?xml version='1.1' encoding='UTF-8'?><project><description>测试</description></project>"
+      responses:
+        '200':
+          description: 校验完成
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: XML 校验完成
+                  data:
+                    type: object
+                    properties:
+                      valid:
+                        type: boolean
+                        example: true
+                      errors:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                            message:
+                              type: string
+                            line:
+                              type: integer
+                            column:
+                              type: integer
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 校验失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/jenkins/job/copy/:
+    post:
+      tags:
+        - Job Operations
+      summary: 复制 Job
+      description: 基于现有 Job 创建副本
+      operationId: copyJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - source_job
+                - new_job
+              properties:
+                source_job:
+                  type: string
+                  description: 源 Job 名称
+                  example: my-test-job
+                new_job:
+                  type: string
+                  description: 新 Job 名称
+                  example: my-test-job-copy
+      responses:
+        '200':
+          description: 复制成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 成功复制 Job [my-test-job-copy]
+                  data:
+                    type: object
+                    properties:
+                      source_job:
+                        type: string
+                      new_job:
+                        type: string
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 复制失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/jenkins/job/toggle/:
+    post:
+      tags:
+        - Job Operations
+      summary: 启用/禁用 Job
+      description: 启用或禁用指定的 Job
+      operationId: toggleJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - job_name
+                - action
+              properties:
+                job_name:
+                  type: string
+                  description: Job 名称
+                  example: my-test-job
+                action:
+                  type: string
+                  description: 操作类型
+                  enum:
+                    - enable
+                    - disable
+                  example: disable
+      responses:
+        '200':
+          description: 操作成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 成功禁用 Job [my-test-job]
+                  data:
+                    type: object
+                    properties:
+                      job_name:
+                        type: string
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 操作失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/jenkins/job/build/:
+    post:
+      tags:
+        - Job Operations
+      summary: 触发 Job 构建
+      description: 触发指定 Job 的构建任务
+      operationId: buildJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - job_name
+              properties:
+                job_name:
+                  type: string
+                  description: Job 名称
+                  example: my-test-job
+                parameters:
+                  type: object
+                  description: 构建参数（可选）
+                  additionalProperties:
+                    type: string
+                  example:
+                    ENVIRONMENT: test
+                    BRANCH: develop
+      responses:
+        '200':
+          description: 构建触发成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 200
+                  message:
+                    type: string
+                    example: 成功触发构建
+                  data:
+                    type: object
+                    properties:
+                      queue_id:
+                        type: integer
+                        example: 123
+        '400':
+          description: 参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 触发构建失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 500
+        message:
+          type: string
+          example: 操作失败
+        data:
+          type: object
+          nullable: true

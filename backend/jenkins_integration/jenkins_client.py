@@ -107,6 +107,313 @@ def get_job_info(job_name):
         return False, error_msg, None
 
 
+# ==================== Job CRUD 操作 ====================
+
+def validate_xml(xml_content):
+    """
+    校验 XML 格式
+    
+    Args:
+        xml_content: XML 字符串内容
+        
+    Returns:
+        tuple: (是否有效, 错误列表)
+    """
+    try:
+        from lxml import etree
+    except ImportError:
+        # 如果 lxml 未安装，使用基础的 XML 解析
+        import xml.etree.ElementTree as ET
+        try:
+            ET.fromstring(xml_content)
+            return True, []
+        except ET.ParseError as e:
+            return False, [{
+                'type': 'syntax',
+                'message': str(e),
+                'line': e.position[0] if hasattr(e, 'position') else 'unknown'
+            }]
+    
+    errors = []
+    
+    try:
+        # 使用 lxml 进行更详细的校验
+        parser = etree.XMLParser()
+        root = etree.fromstring(xml_content.encode('utf-8'), parser)
+        
+        # 检查根节点类型是否为 Jenkins 支持的类型
+        valid_root_tags = [
+            'project',                    # Freestyle project
+            'flow-definition',            # Pipeline
+            'maven2-moduleset',           # Maven project
+            'matrix-project',             # Multi-configuration project
+            'org.jenkinsci.plugins.workflow.job.WorkflowJob'  # Pipeline (新版本)
+        ]
+        
+        if root.tag not in valid_root_tags:
+            errors.append({
+                'type': 'structure',
+                'message': f'根节点类型 "{root.tag}" 可能不被 Jenkins 支持',
+                'suggestion': f'建议使用: {", ".join(valid_root_tags)}'
+            })
+        
+        return len(errors) == 0, errors
+        
+    except etree.XMLSyntaxError as e:
+        return False, [{
+            'type': 'syntax',
+            'message': str(e),
+            'line': e.lineno,
+            'column': e.offset
+        }]
+    except Exception as e:
+        return False, [{
+            'type': 'unknown',
+            'message': str(e)
+        }]
+
+
+def create_job(job_name, config_xml):
+    """
+    创建 Jenkins Job
+    
+    Args:
+        job_name: Job 名称
+        config_xml: Job 的 XML 配置内容
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+    """
+    try:
+        client = get_jenkins_client()
+        
+        # 先检查 Job 是否已存在
+        if client.job_exists(job_name):
+            error_msg = f'Job [{job_name}] 已存在，无法创建'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        # 创建 Job
+        client.create_job(job_name, config_xml)
+        logger.info(f"成功创建 Job: {job_name}")
+        
+        return True, f'成功创建 Job [{job_name}]', {'job_name': job_name}
+        
+    except Exception as e:
+        error_msg = f'创建 Job 失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def get_job_config(job_name):
+    """
+    获取 Job 的 XML 配置
+    
+    Args:
+        job_name: Job 名称
+        
+    Returns:
+        tuple: (是否成功, 消息, XML配置)
+    """
+    try:
+        client = get_jenkins_client()
+        config_xml = client.get_job_config(job_name)
+        
+        logger.info(f"成功获取 Job [{job_name}] 配置")
+        return True, '获取Job配置成功', {'config_xml': config_xml}
+        
+    except Exception as e:
+        error_msg = f'获取Job配置失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def update_job(job_name, config_xml):
+    """
+    更新 Job 配置
+    
+    Args:
+        job_name: Job 名称
+        config_xml: 新的 XML 配置内容
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+    """
+    try:
+        client = get_jenkins_client()
+        
+        # 检查 Job 是否存在
+        if not client.job_exists(job_name):
+            error_msg = f'Job [{job_name}] 不存在，无法更新'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        # 更新配置
+        client.reconfig_job(job_name, config_xml)
+        logger.info(f"成功更新 Job [{job_name}] 配置")
+        
+        return True, f'成功更新 Job [{job_name}]', {'job_name': job_name}
+        
+    except Exception as e:
+        error_msg = f'更新 Job 失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def delete_job(job_name):
+    """
+    删除 Job
+    
+    Args:
+        job_name: Job 名称
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+    """
+    try:
+        client = get_jenkins_client()
+        
+        # 检查 Job 是否存在
+        if not client.job_exists(job_name):
+            error_msg = f'Job [{job_name}] 不存在，无法删除'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        # 删除 Job
+        client.delete_job(job_name)
+        logger.info(f"成功删除 Job: {job_name}")
+        
+        return True, f'成功删除 Job [{job_name}]', {'job_name': job_name}
+        
+    except Exception as e:
+        error_msg = f'删除 Job 失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def copy_job(source_job_name, new_job_name):
+    """
+    复制 Job（基于现有 Job 创建新 Job）
+    
+    Args:
+        source_job_name: 源 Job 名称
+        new_job_name: 新 Job 名称
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+    """
+    try:
+        client = get_jenkins_client()
+        
+        # 检查源 Job 是否存在
+        if not client.job_exists(source_job_name):
+            error_msg = f'源 Job [{source_job_name}] 不存在'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        # 检查新 Job 名称是否已被占用
+        if client.job_exists(new_job_name):
+            error_msg = f'Job [{new_job_name}] 已存在，无法复制'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        # 复制 Job
+        client.copy_job(source_job_name, new_job_name)
+        logger.info(f"成功复制 Job: {source_job_name} -> {new_job_name}")
+        
+        return True, f'成功复制 Job [{new_job_name}]', {
+            'source_job': source_job_name,
+            'new_job': new_job_name
+        }
+        
+    except Exception as e:
+        error_msg = f'复制 Job 失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def enable_job(job_name):
+    """
+    启用 Job
+    
+    Args:
+        job_name: Job 名称
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+    """
+    try:
+        client = get_jenkins_client()
+        
+        if not client.job_exists(job_name):
+            error_msg = f'Job [{job_name}] 不存在'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        client.enable_job(job_name)
+        logger.info(f"成功启用 Job: {job_name}")
+        
+        return True, f'成功启用 Job [{job_name}]', {'job_name': job_name}
+        
+    except Exception as e:
+        error_msg = f'启用 Job 失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def disable_job(job_name):
+    """
+    禁用 Job
+    
+    Args:
+        job_name: Job 名称
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+    """
+    try:
+        client = get_jenkins_client()
+        
+        if not client.job_exists(job_name):
+            error_msg = f'Job [{job_name}] 不存在'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        client.disable_job(job_name)
+        logger.info(f"成功禁用 Job: {job_name}")
+        
+        return True, f'成功禁用 Job [{job_name}]', {'job_name': job_name}
+        
+    except Exception as e:
+        error_msg = f'禁用 Job 失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def job_exists(job_name):
+    """
+    检查 Job 是否存在
+    
+    Args:
+        job_name: Job 名称
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+    """
+    try:
+        client = get_jenkins_client()
+        exists = client.job_exists(job_name)
+        
+        return True, 'Job存在性检查完成', {'exists': exists, 'job_name': job_name}
+        
+    except Exception as e:
+        error_msg = f'检查 Job 是否存在失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+# ==================== Build 操作 ====================
+
 def build_job(job_name, parameters=None):
     """
     触发 Job 构建

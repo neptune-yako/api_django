@@ -1,5 +1,5 @@
 """
-Jenkins URL 路由
+Jenkins URL 路由配置
 """
 from django.urls import path
 from . import views
@@ -10,4 +10,19 @@ urlpatterns = [
     
     # 获取所有 Jobs
     path('api/jenkins/jobs/', views.JenkinsJobsView.as_view(), name='jenkins-jobs'),
+    
+   # Job 管理 - CRUD (创建、读取、更新、删除)
+    path('api/jenkins/job/', views.JenkinsJobManageView.as_view(), name='jenkins-job-manage'),
+    
+    # XML 校验
+    path('api/jenkins/job/validate/', views.JenkinsJobValidateView.as_view(), name='jenkins-job-validate'),
+    
+    # 复制 Job
+    path('api/jenkins/job/copy/', views.JenkinsJobCopyView.as_view(), name='jenkins-job-copy'),
+    
+    # 启用/禁用 Job
+    path('api/jenkins/job/toggle/', views.JenkinsJobToggleView.as_view(), name='jenkins-job-toggle'),
+    
+    # 触发构建
+    path('api/jenkins/job/build/', views.JenkinsJobBuildView.as_view(), name='jenkins-job-build'),
 ]
