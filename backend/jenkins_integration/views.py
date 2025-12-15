@@ -466,3 +466,138 @@ class JenkinsTemplateDetailView(APIView):
             error_msg = f"获取模板失败: {str(e)}"
             logger.error(error_msg)
             return R.internal_error(message=error_msg)
+
+
+# ==================== Build 状态查询视图 ====================
+
+class JenkinsBuildLatestView(APIView):
+    """查询最新构建状态（用于前端轮询）"""
+    
+    def get(self, request):
+        """
+        获取指定 Job 的最新构建状态
+        
+        用途：前端轮询使用
+        
+        Query Parameters:
+            job_name: Job 名称（必需）
+            
+        Returns:
+            {
+                "code": 200,
+                "message": "最新构建 #45 - 构建成功",
+                "data": {
+                    "build_number": 45,
+                    "result": "SUCCESS",      // SUCCESS, FAILURE, ABORTED, UNSTABLE, null(构建中)
+                    "building": false,         // true(构建中), false(已完成)
+                    "duration": 120000,        // 毫秒
+                    "duration_text": "120.00秒",
+                    "status_text": "构建成功",
+                    "url": "http://jenkins/job/xxx/45/",
+                    "timestamp": 1702615200000
+                }
+            }
+        """
+        try:
+            job_name = request.query_params.get('job_name')
+            
+            if not job_name:
+                return R.bad_request(message=ResponseMessage.PARAM_MISSING + ': job_name')
+            
+            # 1. 获取 Job 信息
+            from .jenkins_client import get_job_info
+            success, message, data = get_job_info(job_name)
+            
+            if not success:
+                if '不存在' in message or 'not exist' in message.lower():
+                    return R.error(
+                        message=message,
+                        code=ResponseCode.JENKINS_JOB_NOT_FOUND
+                    )
+                return R.jenkins_error(message=message)
+            
+            # 2. 检查是否有构建记录
+            last_build = data.get('lastBuild')
+            
+            if not last_build:
+                return R.success(
+                    message='该 Job 还没有构建记录',
+                    data=None
+                )
+            
+            last_build_number = last_build.get('number')
+            
+            # 3. 获取最新构建的详细信息
+            from .jenkins_client import get_build_info
+            build_success, build_msg, build_data = get_build_info(job_name, last_build_number)
+            
+            if not build_success:
+                return R.jenkins_error(message=build_msg)
+            
+            # 4. 解析构建状态
+            result = build_data.get('result')
+            building = build_data.get('building')
+            duration = build_data.get('duration')
+            
+            # 确定状态文本
+            if building:
+                status_text = '正在构建中'
+            elif result == 'SUCCESS':
+                status_text = '构建成功'
+            elif result == 'FAILURE':
+                status_text = '构建失败'
+            elif result == 'ABORTED':
+                status_text = '构建已中止'
+            elif result == 'UNSTABLE':
+                status_text = '构建不稳定'
+            else:
+                status_text = '未知状态'
+            
+            # 5. 返回格式化的数据
+            return R.success(
+                message=f'最新构建 #{last_build_number} - {status_text}',
+                data={
+                    'build_number': last_build_number,
+                    'result': result,
+                    'building': building,
+                    'duration': duration,
+                    'duration_text': f"{duration / 1000:.2f}秒" if duration else None,
+                    'status_text': status_text,
+                    'url': build_data.get('url'),
+                    'timestamp': build_data.get('timestamp')
+                }
+            )
+            
+        except Exception as e:
+            error_msg = f"查询最新构建状态失败: {str(e)}"
+            logger.error(error_msg)
+            return R.internal_error(message=error_msg)
+
+
+class JenkinsBuildAllureView(APIView):
+    """获取 Allure 报告 URL"""
+    
+    def get(self, request):
+        """
+        获取指定构建的 Allure 报告 URL
+        
+        Query Parameters:
+            job_name: Job 名称（必需）
+            build_number: 构建编号（必需）
+            
+        Returns:
+            {
+                "code": 200,
+                "message": "获取 Allure 报告 URL",
+                "data": {
+                    "allure_url": "...",
+                    "job_name": "...",
+                    "build_number": ...
+                }
+            }
+            
+            注意：实际实现已移至 allure_views.py
+        """
+        # 导入实际实现
+        from .allure_views import JenkinsBuildAllureView as ActualView
+        return ActualView().get(request)

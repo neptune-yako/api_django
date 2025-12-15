@@ -428,18 +428,66 @@ def build_job(job_name, parameters=None):
     try:
         client = get_jenkins_client()
         
+        #首先检查 Job 是否存在
+        if not client.job_exists(job_name):
+            error_msg = f'Job [{job_name}] 不存在，无法触发构建'
+            logger.error(error_msg)
+            return False, error_msg, None
+        
+        # 如果传递了参数，先检查 Job 是否支持参数
         if parameters:
-            queue_id = client.build_job(job_name, parameters=parameters)
+            try:
+                # 获取 Job 信息
+                job_info = client.get_job_info(job_name)
+                
+                # 检查是否有参数定义
+                has_parameters = False
+                if 'property' in job_info:
+                    for prop in job_info['property']:
+                        if 'parameterDefinitions' in prop:
+                            has_parameters = True
+                            break
+                
+                if not has_parameters:
+                    logger.warning(f"Job [{job_name}] 未定义参数，但提供了参数。将尝试无参数构建")
+                    # 改为无参数构建
+                    queue_id = client.build_job(job_name)
+                else:
+                    # 使用参数构建
+                    queue_id = client.build_job(job_name, parameters=parameters)
+                    
+            except Exception as param_error:
+                # 如果参数检查失败，尝试直接构建
+                logger.warning(f"参数检查失败，尝试直接构建: {str(param_error)}")
+                try:
+                    queue_id = client.build_job(job_name, parameters=parameters)
+                except:
+                    # 最后尝试无参数构建
+                    queue_id = client.build_job(job_name)
         else:
+            # 无参数构建
             queue_id = client.build_job(job_name)
         
         logger.info(f"成功触发 Job [{job_name}] 构建，队列ID: {queue_id}")
         
         return True, '成功触发构建', {'queue_id': queue_id}
         
-    except Exception as e:
-        error_msg = f'触发构建失败: {str(e)}'
+    except jenkins.JenkinsException as je:
+        # Jenkins 特定异常
+        error_msg = f'Jenkins 错误: {str(je)}'
         logger.error(error_msg)
+        return False, error_msg, None
+    except Exception as e:
+        # 详细的错误信息
+        error_msg = f'触发构建失败: {str(e)}'
+        error_type = type(e).__name__
+        logger.error(f"{error_msg} (异常类型: {error_type})")
+        
+        # 提供更友好的错误提示
+        if 'JSON' in str(e) or 'json' in str(e):
+            friendly_msg = f"Job [{job_name}] 可能未定义参数，但尝试传递了参数。请检查 Job 配置或不传递 parameters 参数"
+            return False, friendly_msg, None
+        
         return False, error_msg, None
 
 
@@ -485,5 +533,46 @@ def get_build_console_output(job_name, build_number):
         
     except Exception as e:
         error_msg = f'获取控制台输出失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def get_allure_report_url(job_name, build_number):
+    """
+    获取 Allure 报告 URL
+    
+    注意：Jenkins API 无法可靠检测 Allure 报告是否存在，
+    因此直接返回标准 URL，由前端自行验证。
+    
+    Args:
+        job_name: Job 名称
+        build_number: 构建编号
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+        数据格式: {
+            'allure_url': str,
+            'job_name': str,
+            'build_number': int
+        }
+    """
+    try:
+        client = get_jenkins_client()
+        
+        # 验证构建是否存在
+        build_info = client.get_build_info(job_name, build_number)
+        
+        # 直接构造 Allure 报告的标准 URL
+        # 注意：无法通过 API 可靠检测报告是否存在，由前端自行验证
+        allure_url = f"{JENKINS_URL}/job/{job_name}/{build_number}/allure/"
+        
+        return True, "Allure 报告 URL 已生成", {
+            'allure_url': allure_url,
+            'job_name': job_name,
+            'build_number': build_number
+        }
+        
+    except Exception as e:
+        error_msg = f'获取 Allure 报告失败: {str(e)}'
         logger.error(error_msg)
         return False, error_msg, None
