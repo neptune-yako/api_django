@@ -25,4 +25,11 @@ urlpatterns = [
     
     # 触发构建
     path('api/jenkins/job/build/', views.JenkinsJobBuildView.as_view(), name='jenkins-job-build'),
+    
+    # ===== Job 模板相关 =====
+    # 获取所有可用模板列表
+    path('api/jenkins/templates/', views.JenkinsTemplateListView.as_view(), name='jenkins-template-list'),
+    
+    # 获取指定类型的模板内容
+    path('api/jenkins/template/<str:template_type>/', views.JenkinsTemplateDetailView.as_view(), name='jenkins-template-detail'),
 ]

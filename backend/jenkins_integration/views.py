@@ -370,3 +370,99 @@ class JenkinsJobBuildView(APIView):
             error_msg = f"触发构建失败: {str(e)}"
             logger.error(error_msg)
             return R.internal_error(message=error_msg)
+
+
+# ==================== Template 相关视图 ====================
+
+class JenkinsTemplateListView(APIView):
+    """获取所有可用的 Job 模板列表"""
+    
+    def get(self, request):
+        """
+        获取所有可用模板
+        
+        Returns:
+            {
+                "code": 200,
+                "message": "成功",
+                "data": [
+                    {
+                        "type": "freestyle",
+                        "name": "自由风格项目",
+                        "description": "...",
+                        "icon": "📋"
+                    },
+                    ...
+                ]
+            }
+        """
+        try:
+            from .template_manager import get_template_manager
+            
+            manager = get_template_manager()
+            templates = manager.get_all_templates()
+            
+            return R.success(
+                message=f"成功获取 {len(templates)} 个模板",
+                data=templates
+            )
+            
+        except Exception as e:
+            error_msg = f"获取模板列表失败: {str(e)}"
+            logger.error(error_msg)
+            return R.internal_error(message=error_msg)
+
+
+class JenkinsTemplateDetailView(APIView):
+    """获取指定类型的模板内容"""
+    
+    def get(self, request, template_type):
+        """
+        获取模板 XML 内容
+        
+        Args:
+            template_type: 模板类型 (freestyle, pipeline, maven)
+            
+        Returns:
+            {
+                "code": 200,
+                "message": "成功加载模板 [自由风格项目]",
+                "data": {
+                    "type": "freestyle",
+                    "name": "自由风格项目",
+                    "xml_content": "<?xml...>"
+                }
+            }
+        """
+        try:
+            from .template_manager import get_template_manager
+            
+            manager = get_template_manager()
+            
+            # 1. 获取模板信息
+            info_success, info_msg, template_info = manager.get_template_info(template_type)
+            
+            if not info_success:
+                return R.bad_request(message=info_msg)
+            
+            # 2. 加载模板内容
+            load_success, load_msg, xml_content = manager.load_template(template_type)
+            
+            if not load_success:
+                return R.jenkins_error(message=load_msg)
+            
+            # 3. 返回完整数据
+            return R.success(
+                message=load_msg,
+                data={
+                    'type': template_type,
+                    'name': template_info['name'],
+                    'description': template_info['description'],
+                    'xml_content': xml_content
+                }
+            )
+            
+        except Exception as e:
+            error_msg = f"获取模板失败: {str(e)}"
+            logger.error(error_msg)
+            return R.internal_error(message=error_msg)
