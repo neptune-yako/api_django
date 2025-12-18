@@ -18,6 +18,9 @@ urlpatterns = [
     # 构建结果同步 (新)
     path('api/jenkins/build/sync/', allure_views.SyncBuildResultView.as_view(), name='sync_build_result'),
     
+    # Job 批量同步 (新)
+    path('api/jenkins/jobs/sync/', views.SyncJenkinsJobsView.as_view(), name='sync_jenkins_jobs'),
+    
     # 复制 Job
     path('api/jenkins/job/copy/', views.JenkinsJobCopyView.as_view(), name='jenkins-job-copy'),
     

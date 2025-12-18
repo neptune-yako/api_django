@@ -602,3 +602,27 @@ class JenkinsBuildAllureView(APIView):
         from .allure_views import JenkinsBuildAllureView as ActualView
         return ActualView().get(request)
 
+
+class SyncJenkinsJobsView(APIView):
+    """
+    同步 Jenkins Jobs 视图
+    从 Jenkins 服务器拉取所有 Job 并同步到数据库
+    """
+    
+    def post(self, request):
+        """
+        触发同步 (异步)
+        """
+        try:
+            # 调用 Celery 异步任务
+            from .tasks import sync_jenkins_jobs_task
+            task = sync_jenkins_jobs_task.delay()
+            
+            return R.success(
+                message="Jenkins Jobs 同步任务已在后台启动",
+                data={'task_id': task.id}
+            )
+                
+        except Exception as e:
+            logger.error(f"同步 Jobs 视图异常: {str(e)}")
+            return R.internal_error(str(e))

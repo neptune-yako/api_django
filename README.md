@@ -110,6 +110,8 @@ http://120.26.11.168:30
 #### 后端django启动命令
 ```bash
 python manage.py runserver
+# Windows 下通常需要加 -P eventlet 或 -P gevent，否则可能会有兼容性问题
+celery -A backend worker -l info -P eventlet
 ```
 
 #### 后端异步任务启动命令

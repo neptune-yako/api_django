@@ -9,7 +9,7 @@ services:
     # 修正: 官方镜像需要用命令设置密码
     command: redis-server --requirepass 123456py
     ports:
-      - "6379:6379"  # 建议: 映射端口方便你用RDM/Navicat连接查看
+      - "16379:6379"  # 建议: 映射端口方便你用RDM/Navicat连接查看
 
   # 2. MySQL 服务
   mysql:

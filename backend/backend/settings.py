@@ -379,7 +379,7 @@ CELERY_TASK_TIME_LIMIT = 30 * 60
 # CELERY_BROKER_URL = 'redis://:123456py@redis:6379/4'
 # ------
 # 开发环境
-CELERY_BROKER_URL = 'redis://:123456py@127.0.0.1:6379/4'
+CELERY_BROKER_URL = 'redis://:123456py@127.0.0.1:16379/4'
 # -------
 # 使用django-orm作为结果存储
 CELERY_RESULT_BACKEND = 'django-db'

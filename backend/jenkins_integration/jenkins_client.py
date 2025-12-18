@@ -2,6 +2,7 @@
 Jenkins 客户端 - 启用 CSRF Crumb 支持
 """
 import jenkins
+import requests
 import logging
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,57 @@ def get_all_jobs():
         return True, f'成功获取 {len(jobs)} 个 Jobs', jobs
         
     except Exception as e:
-        error_msg = f'获取Jobs失败: {str(e)}'
+        error_msg = f"获取 Jobs 异常: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg, []
+
+
+def get_job_detail(job_name):
+    """
+    获取 Jenkins Job 详细信息（包括 description, config.xml 等）
+    
+    Args:
+        job_name: Job 名称
+        
+    Returns:
+        (bool, str, dict): (是否成功, 消息, Job详情字典)
+            详情字典包含: description, config_xml, last_build_number, last_build_status
+    """
+    try:
+        # 获取 Job 详情 JSON (用于 description, lastBuild 等)
+        # tree 参数优化：获取 description, lastBuild, buildable, inQueue
+        json_url = f"{JENKINS_URL}/job/{job_name}/api/json?tree=description,buildable,inQueue,lastBuild[number,result,timestamp]"
+        
+        json_resp = requests.get(json_url, auth=(USERNAME, TOKEN), timeout=10)
+        if json_resp.status_code != 200:
+            return False, f"获取 Job JSON 失败: {json_resp.status_code}", None
+            
+        job_data = json_resp.json()
+        
+        # 获取 config.xml
+        config_url = f"{JENKINS_URL}/job/{job_name}/config.xml"
+        config_resp = requests.get(config_url, auth=(USERNAME, TOKEN), timeout=10)
+        
+        config_xml = ""
+        if config_resp.status_code == 200:
+            config_xml = config_resp.text
+            
+        # 组装返回数据
+        # 组装返回数据
+        last_build = job_data.get('lastBuild') or {}
+        result = {
+            'description': job_data.get('description'),
+            'is_buildable': job_data.get('buildable', True),
+            'config_xml': config_xml,
+            'last_build_number': last_build.get('number'),
+            'last_build_status': last_build.get('result') or '',
+            # timestamp 需要转换，暂时先不做
+        }
+        
+        return True, "获取成功", result
+
+    except Exception as e:
+        error_msg = f"获取 Job 详情异常: {str(e)}"
         logger.error(error_msg)
         return False, error_msg, None
 
