@@ -157,3 +157,66 @@ class AllureProxyView(APIView):
             html = html.replace('</head>', f'{custom_css}</head>')
         
         return html
+
+
+class SyncBuildResultView(APIView):
+    """
+    同步构建结果 API
+    当 Jenkins 构建完成后调用此接口，触发 Allure 数据解析和入库
+    """
+    
+    def post(self, request):
+        """
+        接收 job_name 和 build_number，同步 Allure 数据
+        """
+        job_name = request.data.get('job_name')
+        build_number = request.data.get('build_number')
+        
+        # 验证参数
+        if not job_name or not build_number:
+            return R.bad_request("Missing job_name or build_number")
+            
+        try:
+            # 1. 获取对应的 Job
+            # 注意：这里假设 Job 已经存在于数据库中
+            from .models import JenkinsJob, AllureReport
+            job = JenkinsJob.objects.filter(name=job_name).first()
+            if not job:
+                return R.error(
+                    code=ResponseCode.JENKINS_JOB_NOT_FOUND,
+                    message=f"Job '{job_name}' not found in database"
+                )
+            
+            # 2. 获取 Allure URL
+            allure_url = job.get_allure_url(build_number)
+            
+            # 3. 调用服务进行同步
+            from .services.allure_sync import AllureSyncService
+            # 注意：AllureReport 的 build_number 是 IntegerField
+            success, msg = AllureSyncService.sync_report_data(job, int(build_number), allure_url)
+            
+            if success:
+                # 获取同步后的报告数据
+                report = AllureReport.objects.filter(job=job, build_number=build_number).first()
+                data = None
+                if report:
+                    data = {
+                        "report_id": report.id,
+                        "job_name": job.name,
+                        "build_number": report.build_number,
+                        "total": report.total,
+                        "passed": report.passed,
+                        "failed": report.failed,
+                        "broken": report.broken,
+                        "skipped": report.skipped,
+                        "pass_rate": report.pass_rate,
+                        "duration": report.duration,
+                        "created_at": report.create_time.strftime('%Y-%m-%d %H:%M:%S') if report.create_time else None
+                    }
+                return R.success(message=f"Allure data synced successfully for build #{build_number}", data=data)
+            else:
+                return R.error(message=f"Failed to sync Allure data: {msg}")
+                
+        except Exception as e:
+            logger.error(f"Sync API Error: {str(e)}")
+            return R.internal_error(str(e))

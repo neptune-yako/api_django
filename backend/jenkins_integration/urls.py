@@ -9,14 +9,14 @@ urlpatterns = [
     # 测试 Jenkins 连接
     path('api/jenkins/test/', views.JenkinsTestView.as_view(), name='jenkins-test'),
     
-    # 获取所有 Jobs
-    path('api/jenkins/jobs/', views.JenkinsJobsView.as_view(), name='jenkins-jobs'),
+    # Job 管理 API
+    path('api/jenkins/jobs/', views.JenkinsJobsView.as_view(), name='jenkins_jobs'),
+    path('api/jenkins/job/manage/', views.JenkinsJobManageView.as_view(), name='jenkins_job_manage'),
+    path('api/jenkins/job/build/', views.JenkinsJobBuildView.as_view(), name='jenkins_job_build'),
+    path('api/jenkins/job/validate/', views.JenkinsJobValidateView.as_view(), name='jenkins_job_validate'),
     
-   # Job 管理 - CRUD (创建、读取、更新、删除)
-    path('api/jenkins/job/', views.JenkinsJobManageView.as_view(), name='jenkins-job-manage'),
-    
-    # XML 校验
-    path('api/jenkins/job/validate/', views.JenkinsJobValidateView.as_view(), name='jenkins-job-validate'),
+    # 构建结果同步 (新)
+    path('api/jenkins/build/sync/', allure_views.SyncBuildResultView.as_view(), name='sync_build_result'),
     
     # 复制 Job
     path('api/jenkins/job/copy/', views.JenkinsJobCopyView.as_view(), name='jenkins-job-copy'),

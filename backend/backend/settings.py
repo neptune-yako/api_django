@@ -429,7 +429,7 @@ SIMPLEUI_CONFIG = {
     # 是否使用系统默认菜单，自定义菜单时建议关闭
     'system_keep': False,
     # 用于菜单排序和过滤，不填此字段为默认排序和全部显示。空列表[]为全部不显示
-    'menu_display': ['用户管理', '项目管理', '接口管理', '测试套件', '定时任务', '测试计划', 'Bug管理', '任务监控'],
+    'menu_display': ['用户管理', '项目管理', '接口管理', '测试套件', '定时任务', '测试计划', 'Bug管理', '持续集成', '任务监控'],
     # 设置是否开启动态菜单，默认为False。如果开启，则会在每次用户登陆时刷新展示菜单内容
     'dynamic': True,
     'menus': [
@@ -545,6 +545,37 @@ SIMPLEUI_CONFIG = {
             ]
         },
         {
+            'app': 'jenkins_integration',
+            'name': '持续集成',
+            'icon': 'fab fa-jenkins',
+            'models': [{
+                'name': '服务器配置',
+                'url': 'jenkins_integration/jenkinsserver/',
+                'icon': 'fas fa-server'
+            },
+                {
+                    'name': '节点管理',
+                    'url': 'jenkins_integration/jenkinsnode/',
+                    'icon': 'fas fa-network-wired'
+                },
+                {
+                    'name': '任务管理',
+                    'url': 'jenkins_integration/jenkinsjob/',
+                    'icon': 'fas fa-tasks'
+                },
+                {
+                    'name': 'Allure报告',
+                    'url': 'jenkins_integration/allurereport/',
+                    'icon': 'fas fa-chart-line'
+                },
+                {
+                    'name': '测试用例',
+                    'url': 'jenkins_integration/alluretestcase/',
+                    'icon': 'fas fa-vial'
+                }
+            ]
+        },
+        {
             'app': 'monitor',
             'name': '任务监控',
             'icon': 'fa fa-binoculars',
@@ -561,6 +592,7 @@ SIMPLEUI_CONFIG = {
             ]
         }
     ]
+
 }
 
 # 打包后端静态文件，生产环境启用

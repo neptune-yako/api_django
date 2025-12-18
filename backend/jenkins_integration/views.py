@@ -601,3 +601,4 @@ class JenkinsBuildAllureView(APIView):
         # 导入实际实现
         from .allure_views import JenkinsBuildAllureView as ActualView
         return ActualView().get(request)
+
