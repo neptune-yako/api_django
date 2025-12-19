@@ -1,0 +1,1276 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Jenkins Job Management API",
+    "description": "Jenkins Job CRUD 操作接口\n\n提供完整的 Jenkins Job 管理功能，包括创建、读取、更新、删除、XML 校验、复制、启用/禁用等操作。\n",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support"
+    }
+  },
+  "tags": [
+    {
+      "name": "Connection"
+    },
+    {
+      "name": "Job Management"
+    },
+    {
+      "name": "Job Operations"
+    }
+  ],
+  "paths": {
+    "/api/jenkins/test/": {
+      "get": {
+        "summary": "测试 Jenkins 连接",
+        "deprecated": false,
+        "description": "测试与 Jenkins 服务器的连接状态，获取版本信息和用户信息",
+        "operationId": "testJenkinsConnection",
+        "tags": [
+          "Connection"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "连接成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Jenkins连接成功"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "string",
+                          "example": "2.440"
+                        },
+                        "user": {
+                          "type": "object",
+                          "properties": {
+                            "fullName": {
+                              "type": "string",
+                              "example": "akko"
+                            },
+                            "id": {
+                              "type": "string",
+                              "example": "akko"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "连接失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/jenkins/jobs/sync/": {
+      "post": {
+        "summary": "Job 批量同步",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "example": {
+                  "code": 200,
+                  "message": "成功同步 9 个任务",
+                  "data": {
+                    "count": 9
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/jenkins/jobs/": {
+      "get": {
+        "summary": "获取所有 Jobs",
+        "deprecated": false,
+        "description": "获取 Jenkins 服务器上所有 Job 的列表",
+        "operationId": "getAllJobs",
+        "tags": [
+          "Job Management"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功获取 Jobs 列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "成功获取 3 个 Jobs"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "example": "test-job"
+                          },
+                          "url": {
+                            "type": "string",
+                            "example": "http://mg.morry.online/job/test-job/"
+                          },
+                          "color": {
+                            "type": "string",
+                            "example": "blue"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "获取失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/jenkins/job/": {
+      "get": {
+        "summary": "获取 Job 信息或配置",
+        "deprecated": false,
+        "description": "获取指定 Job 的详细信息（JSON）或 XML 配置",
+        "operationId": "getJobInfo",
+        "tags": [
+          "Job Management"
+        ],
+        "parameters": [
+          {
+            "name": "job_name",
+            "in": "query",
+            "description": "Job 名称",
+            "required": true,
+            "example": "my-test-job",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "get_config",
+            "in": "query",
+            "description": "是否获取 XML 配置（true/false）",
+            "required": false,
+            "example": "false",
+            "schema": {
+              "type": "string",
+              "enum": [
+                true,
+                false
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功获取 Job 信息",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "获取Job信息成功"
+                    },
+                    "data": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "description": "Job 信息（get_config=false）",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "url": {
+                              "type": "string"
+                            },
+                            "description": {
+                              "type": "string"
+                            },
+                            "buildable": {
+                              "type": "boolean"
+                            },
+                            "color": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "description": "Job XML 配置（get_config=true）",
+                          "properties": {
+                            "config_xml": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "获取失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      },
+      "post": {
+        "summary": "创建 Job",
+        "deprecated": false,
+        "description": "使用 XML 配置创建新的 Jenkins Job",
+        "operationId": "createJob",
+        "tags": [
+          "Job Management"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "job_name",
+                  "config_xml"
+                ],
+                "properties": {
+                  "job_name": {
+                    "type": "string",
+                    "description": "Job 名称",
+                    "example": "my-test-job"
+                  },
+                  "config_xml": {
+                    "type": "string",
+                    "description": "Job 的 XML 配置",
+                    "example": "<?xml version='1.1' encoding='UTF-8'?><project><description>测试任务</description><builders><hudson.tasks.Shell><command>echo 'Hello'</command></hudson.tasks.Shell></builders></project>"
+                  },
+                  "force": {
+                    "type": "boolean",
+                    "description": "强制创建（即使 XML 有警告）",
+                    "default": false
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "成功创建 Job [my-test-job]"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "job_name": {
+                          "type": "string",
+                          "example": "my-test-job"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "参数错误或 XML 格式错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 400
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "XML 格式错误，请修复后重试或使用 force=true 强制创建"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "errors": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "line": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "创建失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      },
+      "put": {
+        "summary": "更新 Job 配置",
+        "deprecated": false,
+        "description": "更新现有 Job 的 XML 配置",
+        "operationId": "updateJob",
+        "tags": [
+          "Job Management"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "job_name",
+                  "config_xml"
+                ],
+                "properties": {
+                  "job_name": {
+                    "type": "string",
+                    "description": "Job 名称",
+                    "example": "my-test-job"
+                  },
+                  "config_xml": {
+                    "type": "string",
+                    "description": "新的 XML 配置",
+                    "example": "<?xml version='1.1' encoding='UTF-8'?><project><description>更新后的描述</description><builders><hudson.tasks.Shell><command>echo 'Updated!'</command></hudson.tasks.Shell></builders></project>"
+                  },
+                  "force": {
+                    "type": "boolean",
+                    "description": "强制更新（即使 XML 有警告）",
+                    "default": false
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "更新成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "成功更新 Job [my-test-job]"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "job_name": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "参数错误或 XML 格式错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "更新失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      },
+      "delete": {
+        "summary": "删除 Job",
+        "deprecated": false,
+        "description": "删除指定的 Jenkins Job",
+        "operationId": "deleteJob",
+        "tags": [
+          "Job Management"
+        ],
+        "parameters": [
+          {
+            "name": "job_name",
+            "in": "query",
+            "description": "要删除的 Job 名称",
+            "required": true,
+            "example": "my-test-job",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "删除成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "成功删除 Job [my-test-job]"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "job_name": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "删除失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/jenkins/job/validate/": {
+      "post": {
+        "summary": "校验 XML 配置",
+        "deprecated": false,
+        "description": "校验 XML 配置格式是否正确（不实际创建 Job）",
+        "operationId": "validateXML",
+        "tags": [
+          "Job Operations"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "config_xml"
+                ],
+                "properties": {
+                  "config_xml": {
+                    "type": "string",
+                    "description": "要校验的 XML 配置",
+                    "example": "<?xml version='1.1' encoding='UTF-8'?><project><description>测试</description></project>"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "校验完成",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "XML 校验完成"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "valid": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "errors": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "string"
+                              },
+                              "line": {
+                                "type": "integer"
+                              },
+                              "column": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/jenkins/job/copy/": {
+      "post": {
+        "summary": "复制 Job",
+        "deprecated": false,
+        "description": "基于现有 Job 创建副本",
+        "operationId": "copyJob",
+        "tags": [
+          "Job Operations"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "source_job",
+                  "new_job"
+                ],
+                "properties": {
+                  "source_job": {
+                    "type": "string",
+                    "description": "源 Job 名称",
+                    "example": "my-test-job"
+                  },
+                  "new_job": {
+                    "type": "string",
+                    "description": "新 Job 名称",
+                    "example": "my-test-job-copy"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "复制成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "成功复制 Job [my-test-job-copy]"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "source_job": {
+                          "type": "string"
+                        },
+                        "new_job": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "复制失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/jenkins/job/toggle/": {
+      "post": {
+        "summary": "启用/禁用 Job",
+        "deprecated": false,
+        "description": "启用或禁用指定的 Job",
+        "operationId": "toggleJob",
+        "tags": [
+          "Job Operations"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "job_name",
+                  "action"
+                ],
+                "properties": {
+                  "job_name": {
+                    "type": "string",
+                    "description": "Job 名称",
+                    "example": "my-test-job"
+                  },
+                  "action": {
+                    "type": "string",
+                    "description": "操作类型",
+                    "enum": [
+                      "enable",
+                      "disable"
+                    ],
+                    "example": "disable"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "操作成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "成功禁用 Job [my-test-job]"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "job_name": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "操作失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/jenkins/job/build/": {
+      "post": {
+        "summary": "触发 Job 构建",
+        "deprecated": false,
+        "description": "触发指定 Job 的构建任务",
+        "operationId": "buildJob",
+        "tags": [
+          "Job Operations"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "job_name"
+                ],
+                "properties": {
+                  "job_name": {
+                    "type": "string",
+                    "description": "Job 名称",
+                    "example": "my-test-job"
+                  },
+                  "parameters": {
+                    "type": "object",
+                    "description": "构建参数（可选）",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "properties": {},
+                    "example": {
+                      "ENVIRONMENT": "test",
+                      "BRANCH": "develop"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "构建触发成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "example": 200
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "成功触发构建"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "queue_id": {
+                          "type": "integer",
+                          "example": 123
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {}
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          },
+          "500": {
+            "description": "触发构建失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/jenkins/template/freestyle": {
+      "get": {
+        "summary": "获取指定xml模板",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "example": {
+                  "code": 200,
+                  "message": "成功加载模板 [自由风格项目]",
+                  "data": {
+                    "type": "freestyle",
+                    "name": "自由风格项目",
+                    "description": "适用于简单的 Shell 脚本执行、构建任务",
+                    "xml_content": "<?xml version='1.1' encoding='UTF-8'?>\n<project>\n  <actions/>\n  <description>自动化测试任务 - 自由风格项目</description>\n  <keepDependencies>false</keepDependencies>\n  <properties/>\n  <scm class=\"hudson.scm.NullSCM\"/>\n  <canRoam>true</canRoam>\n  <disabled>false</disabled>\n  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>\n  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>\n  <triggers/>\n  <concurrentBuild>false</concurrentBuild>\n  <builders>\n    <hudson.tasks.Shell>\n      <command>#!/bin/bash\necho \"======================================\"\necho \"开始执行自动化测试\"\necho \"======================================\"\ndate\necho \"\"\n\n# 在这里添加您的测试命令\n# 例如：\n# cd /path/to/project\n# pytest tests/ --alluredir=allure-results\n\necho \"\"\necho \"======================================\"\necho \"测试执行完成\"\necho \"======================================\"\ndate\n</command>\n    </hudson.tasks.Shell>\n  </builders>\n  <publishers/>\n  <buildWrappers/>\n</project>\n"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/jenkins/templates/": {
+      "get": {
+        "summary": "获取全部xml模板信息",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "example": {
+                  "code": 200,
+                  "message": "成功获取 3 个模板",
+                  "data": [
+                    {
+                      "type": "freestyle",
+                      "name": "自由风格项目",
+                      "description": "适用于简单的 Shell 脚本执行、构建任务",
+                      "file": "freestyle.xml",
+                      "icon": "📋"
+                    },
+                    {
+                      "type": "pipeline",
+                      "name": "Pipeline 流水线",
+                      "description": "适用于复杂的多阶段 CI/CD 流程",
+                      "file": "pipeline.xml",
+                      "icon": "🔄"
+                    },
+                    {
+                      "type": "maven",
+                      "name": "Maven 项目",
+                      "description": "适用于 Java Maven 项目构建",
+                      "file": "maven.xml",
+                      "icon": "☕"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/jenkins/build/allure/": {
+      "get": {
+        "summary": "获取allure",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "job_name",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "a-test-Pipeline",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "build_number",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "4",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "example": {
+                  "code": 5006,
+                  "message": "获取 Allure 报告失败: job[a-test-Pipeline] number[8] does not exist",
+                  "data": null
+                }
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/jenkins/build/latest": {
+      "get": {
+        "summary": "获取构建完成后的日志",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [
+          {
+            "name": "job_name",
+            "in": "query",
+            "description": "",
+            "required": false,
+            "example": "a-test-Pipeline",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "example": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n  <meta name=\"robots\" content=\"NONE,NOARCHIVE\">\n  <title>RuntimeError\n          at /api/jenkins/build/latest</title>\n  <style>\n    html * { padding:0; margin:0; }\n    body * { padding:10px 20px; }\n    body * * { padding:0; }\n    body { font-family: sans-serif; background-color:#fff; color:#000; }\n    body > :where(header, main, footer) { border-bottom:1px solid #ddd; }\n    h1 { font-weight:normal; }\n    h2 { margin-bottom:.8em; }\n    h3 { margin:1em 0 .5em 0; }\n    h4 { margin:0 0 .5em 0; font-weight: normal; }\n    code, pre { font-size: 100%; white-space: pre-wrap; word-break: break-word; }\n    summary { cursor: pointer; }\n    table { border:1px solid #ccc; border-collapse: collapse; width:100%; background:white; }\n    tbody td, tbody th { vertical-align:top; padding:2px 3px; }\n    thead th {\n      padding:1px 6px 1px 3px; background:#fefefe; text-align:left;\n      font-weight:normal; font-size: 0.6875rem; border:1px solid #ddd;\n    }\n    tbody th { width:12em; text-align:right; color:#666; padding-right:.5em; }\n    table.vars { margin:5px 10px 2px 40px; width: auto; }\n    table.vars td, table.req td { font-family:monospace; }\n    table td.code { width:100%; }\n    table td.code pre { overflow:hidden; }\n    table.source th { color:#666; }\n    table.source td { font-family:monospace; white-space:pre; border-bottom:1px solid #eee; }\n    ul.traceback { list-style-type:none; color: #222; }\n    ul.traceback li.cause { word-break: break-word; }\n    ul.traceback li.frame { padding-bottom:1em; color:#4f4f4f; }\n    ul.traceback li.user { background-color:#e0e0e0; color:#000 }\n    div.context { padding:10px 0; overflow:hidden; }\n    div.context ol { padding-left:30px; margin:0 10px; list-style-position: inside; }\n    div.context ol li { font-family:monospace; white-space:pre; color:#777; cursor:pointer; padding-left: 2px; }\n    div.context ol li pre { display:inline; }\n    div.context ol.context-line li { color:#464646; background-color:#dfdfdf; padding: 3px 2px; }\n    div.context ol.context-line li span { position:absolute; right:32px; }\n    .user div.context ol.context-line li { background-color:#bbb; color:#000; }\n    .user div.context ol li { color:#666; }\n    div.commands, summary.commands { margin-left: 40px; }\n    div.commands a, summary.commands { color:#555; text-decoration:none; }\n    .user div.commands a { color: black; }\n    #summary { background: #ffc; }\n    #summary h2 { font-weight: normal; color: #666; }\n    #info { padding: 0; }\n    #info > * { padding:10px 20px; }\n    #explanation { background:#eee; }\n    #template, #template-not-exist { background:#f6f6f6; }\n    #template-not-exist ul { margin: 0 0 10px 20px; }\n    #template-not-exist .postmortem-section { margin-bottom: 3px; }\n    #unicode-hint { background:#eee; }\n    #traceback { background:#eee; }\n    #requestinfo { background:#f6f6f6; padding-left:120px; }\n    #summary table { border:none; background:transparent; }\n    #requestinfo h2, #requestinfo h3 { position:relative; margin-left:-100px; }\n    #requestinfo h3 { margin-bottom:-1em; }\n    .error { background: #ffc; }\n    .specific { color:#cc3300; font-weight:bold; }\n    h2 span.commands { font-size: 0.7rem; font-weight:normal; }\n    span.commands a:link {color:#5E5694;}\n    pre.exception_value { font-family: sans-serif; color: #575757; font-size: 1.5rem; margin: 10px 0 10px 0; }\n    .append-bottom { margin-bottom: 10px; }\n    .fname { user-select: all; }\n  </style>\n  \n  <script>\n    function hideAll(elems) {\n      for (var e = 0; e < elems.length; e++) {\n        elems[e].style.display = 'none';\n      }\n    }\n    window.onload = function() {\n      hideAll(document.querySelectorAll('ol.pre-context'));\n      hideAll(document.querySelectorAll('ol.post-context'));\n      hideAll(document.querySelectorAll('div.pastebin'));\n    }\n    function toggle() {\n      for (var i = 0; i < arguments.length; i++) {\n        var e = document.getElementById(arguments[i]);\n        if (e) {\n          e.style.display = e.style.display == 'none' ? 'block': 'none';\n        }\n      }\n      return false;\n    }\n    function switchPastebinFriendly(link) {\n      s1 = \"Switch to copy-and-paste view\";\n      s2 = \"Switch back to interactive view\";\n      link.textContent = link.textContent.trim() == s1 ? s2: s1;\n      toggle('browserTraceback', 'pastebinTraceback');\n      return false;\n    }\n  </script>\n  \n</head>\n<body>\n<header id=\"summary\">\n  <h1>RuntimeError\n       at /api/jenkins/build/latest</h1>\n  <pre class=\"exception_value\">You called this URL via POST, but the URL doesn&#x27;t end in a slash and you have APPEND_SLASH set. Django can&#x27;t redirect to the slash URL while maintaining POST data. Change your form to point to localhost:8000/api/jenkins/build/latest/?job_name=a-test-Pipeline (note the trailing slash), or set APPEND_SLASH=False in your Django settings.</pre>\n  <table class=\"meta\">\n\n    <tr>\n      <th scope=\"row\">Request Method:</th>\n      <td>POST</td>\n    </tr>\n    <tr>\n      <th scope=\"row\">Request URL:</th>\n      <td>http://localhost:8000/api/jenkins/build/latest?job_name=a-test-Pipeline</td>\n    </tr>\n\n    <tr>\n      <th scope=\"row\">Django Version:</th>\n      <td>5.2.9</td>\n    </tr>\n\n    <tr>\n      <th scope=\"row\">Exception Type:</th>\n      <td>RuntimeError</td>\n    </tr>\n\n\n    <tr>\n      <th scope=\"row\">Exception Value:</th>\n      <td><pre>You called this URL via POST, but the URL doesn&#x27;t end in a slash and you have APPEND_SLASH set. Django can&#x27;t redirect to the slash URL while maintaining POST data. Change your form to point to localhost:8000/api/jenkins/build/latest/?job_name=a-test-Pipeline (note the trailing slash), or set APPEND_SLASH=False in your Django settings.</pre></td>\n    </tr>\n\n\n    <tr>\n      <th scope=\"row\">Exception Location:</th>\n      <td><span class=\"fname\">D:\\software\\CodeSF\\Miniconda3\\conda\\envs\\test_django\\lib\\site-packages\\django\\middleware\\common.py</span>, line 87, in get_full_path_with_slash</td>\n    </tr>\n\n\n    <tr>\n      <th scope=\"row\">Python Executable:</th>\n      <td>D:\\software\\CodeSF\\Miniconda3\\conda\\envs\\test_django\\python.exe</td>\n    </tr>\n    <tr>\n      <th scope=\"row\">Python Version:</th>\n      <td>3.10.19</td>\n    </tr>\n    <tr>\n      <th scope=\"row\">Python Path:</th>\n      <td><pre><code>[&#x27;D:\\\\data\\\\xianYu\\\\test_django\\\\api_django\\\\backend&#x27;,\n &#x27;D:\\\\data\\\\xianYu\\\\test_django\\\\api_django\\\\backend&#x27;,\n &#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django\\\\python310.zip&#x27;,\n &#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django\\\\DLLs&#x27;,\n &#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django\\\\lib&#x27;,\n &#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django&#x27;,\n &#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django\\\\lib\\\\site-packages&#x27;]</code></pre></td>\n    </tr>\n    <tr>\n      <th scope=\"row\">Server time:</th>\n      <td>Mon, 15 Dec 2025 17:04:46 +0800</td>\n    </tr>\n  </table>\n</header>\n\n<main id=\"info\">\n\n\n\n\n<div id=\"traceback\">\n  <h2>Traceback <span class=\"commands\"><a href=\"#\" role=\"button\" onclick=\"return switchPastebinFriendly(this);\">\n    Switch to copy-and-paste view</a></span>\n  </h2>\n  <div id=\"browserTraceback\">\n    <ul class=\"traceback\">\n      \n        \n        <li class=\"frame django\">\n          \n            <code class=\"fname\">D:\\software\\CodeSF\\Miniconda3\\conda\\envs\\test_django\\lib\\site-packages\\django\\core\\handlers\\exception.py</code>, line 55, in inner\n          \n\n          \n            <div class=\"context\" id=\"c2286952613760\">\n              \n                <ol start=\"48\" class=\"pre-context\" id=\"pre2286952613760\">\n                \n                  <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre></pre></li>\n                \n                  <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre>        return inner</pre></li>\n                \n                  <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre>    else:</pre></li>\n                \n                  <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre></pre></li>\n                \n                  <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre>        @wraps(get_response)</pre></li>\n                \n                  <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre>        def inner(request):</pre></li>\n                \n                  <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre>            try:</pre></li>\n                \n                </ol>\n              \n              <ol start=\"55\" class=\"context-line\">\n                <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre>                response = get_response(request)</pre> <span>…</span></li>\n              </ol>\n              \n                <ol start='56' class=\"post-context\" id=\"post2286952613760\">\n                  \n                  <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre>            except Exception as exc:</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre>                response = response_for_exception(request, exc)</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre>            return response</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre></pre></li>\n                  \n                  <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre>        return inner</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286952613760', 'post2286952613760')\"><pre></pre></li>\n                  \n              </ol>\n              \n            </div>\n          \n\n          \n            \n              <details>\n                <summary class=\"commands\">Local vars</summary>\n            \n            <table class=\"vars\" id=\"v2286952613760\">\n              <thead>\n                <tr>\n                  <th scope=\"col\">Variable</th>\n                  <th scope=\"col\">Value</th>\n                </tr>\n              </thead>\n              <tbody>\n                \n                  <tr>\n                    <td>exc</td>\n                    <td class=\"code\"><pre>RuntimeError(&quot;You called this URL via POST, but the URL doesn&#x27;t end in a slash and you have APPEND_SLASH set. Django can&#x27;t redirect to the slash URL while maintaining POST data. Change your form to point to localhost:8000/api/jenkins/build/latest/?job_name=a-test-Pipeline (note the trailing slash), or set APPEND_SLASH=False in your Django settings.&quot;)</pre></td>\n                  </tr>\n                \n                  <tr>\n                    <td>get_response</td>\n                    <td class=\"code\"><pre>&lt;CommonMiddleware get_response=convert_exception_to_response.&lt;locals&gt;.inner&gt;</pre></td>\n                  </tr>\n                \n                  <tr>\n                    <td>request</td>\n                    <td class=\"code\"><pre>&lt;WSGIRequest: POST &#x27;/api/jenkins/build/latest?job_name=a-test-Pipeline&#x27;&gt;</pre></td>\n                  </tr>\n                \n              </tbody>\n            </table>\n            </details>\n          \n        </li>\n      \n        \n        <li class=\"frame django\">\n          \n            <code class=\"fname\">D:\\software\\CodeSF\\Miniconda3\\conda\\envs\\test_django\\lib\\site-packages\\django\\utils\\deprecation.py</code>, line 122, in __call__\n          \n\n          \n            <div class=\"context\" id=\"c2286951235712\">\n              \n                <ol start=\"115\" class=\"pre-context\" id=\"pre2286951235712\">\n                \n                  <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre>        if self.async_mode:</pre></li>\n                \n                  <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre>            return self.__acall__(request)</pre></li>\n                \n                  <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre>        response = None</pre></li>\n                \n                  <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre>        if hasattr(self, &quot;process_request&quot;):</pre></li>\n                \n                  <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre>            response = self.process_request(request)</pre></li>\n                \n                  <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre>        response = response or self.get_response(request)</pre></li>\n                \n                  <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre>        if hasattr(self, &quot;process_response&quot;):</pre></li>\n                \n                </ol>\n              \n              <ol start=\"122\" class=\"context-line\">\n                <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre>            response = self.process_response(request, response)</pre> <span>…</span></li>\n              </ol>\n              \n                <ol start='123' class=\"post-context\" id=\"post2286951235712\">\n                  \n                  <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre>        return response</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre></pre></li>\n                  \n                  <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre>    async def __acall__(self, request):</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre>        &quot;&quot;&quot;</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre>        Async version of __call__ that is swapped in when an async request</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286951235712', 'post2286951235712')\"><pre>        is running.</pre></li>\n                  \n              </ol>\n              \n            </div>\n          \n\n          \n            \n              <details>\n                <summary class=\"commands\">Local vars</summary>\n            \n            <table class=\"vars\" id=\"v2286951235712\">\n              <thead>\n                <tr>\n                  <th scope=\"col\">Variable</th>\n                  <th scope=\"col\">Value</th>\n                </tr>\n              </thead>\n              <tbody>\n                \n                  <tr>\n                    <td>request</td>\n                    <td class=\"code\"><pre>&lt;WSGIRequest: POST &#x27;/api/jenkins/build/latest?job_name=a-test-Pipeline&#x27;&gt;</pre></td>\n                  </tr>\n                \n                  <tr>\n                    <td>response</td>\n                    <td class=\"code\"><pre>&lt;HttpResponseNotFound status_code=404, &quot;text/html; charset=utf-8&quot;&gt;</pre></td>\n                  </tr>\n                \n                  <tr>\n                    <td>self</td>\n                    <td class=\"code\"><pre>&lt;CommonMiddleware get_response=convert_exception_to_response.&lt;locals&gt;.inner&gt;</pre></td>\n                  </tr>\n                \n              </tbody>\n            </table>\n            </details>\n          \n        </li>\n      \n        \n        <li class=\"frame django\">\n          \n            <code class=\"fname\">D:\\software\\CodeSF\\Miniconda3\\conda\\envs\\test_django\\lib\\site-packages\\django\\middleware\\common.py</code>, line 108, in process_response\n          \n\n          \n            <div class=\"context\" id=\"c2286953832320\">\n              \n                <ol start=\"101\" class=\"pre-context\" id=\"pre2286953832320\">\n                \n                  <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre>        &quot;&quot;&quot;</pre></li>\n                \n                  <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre>        When the status code of the response is 404, it may redirect to a path</pre></li>\n                \n                  <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre>        with an appended slash if should_redirect_with_slash() returns True.</pre></li>\n                \n                  <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre>        &quot;&quot;&quot;</pre></li>\n                \n                  <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre>        # If the given URL is &quot;Not Found&quot;, then check if we should redirect to</pre></li>\n                \n                  <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre>        # a path with a slash appended.</pre></li>\n                \n                  <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre>        if response.status_code == 404 and self.should_redirect_with_slash(request):</pre></li>\n                \n                </ol>\n              \n              <ol start=\"108\" class=\"context-line\">\n                <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre>            return self.response_redirect_class(self.get_full_path_with_slash(request))</pre> <span>…</span></li>\n              </ol>\n              \n                <ol start='109' class=\"post-context\" id=\"post2286953832320\">\n                  \n                  <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre></pre></li>\n                  \n                  <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre>        # Add the Content-Length header to non-streaming responses if not</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre>        # already set.</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre>        if not response.streaming and not response.has_header(&quot;Content-Length&quot;):</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre>            response.headers[&quot;Content-Length&quot;] = str(len(response.content))</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286953832320', 'post2286953832320')\"><pre></pre></li>\n                  \n              </ol>\n              \n            </div>\n          \n\n          \n            \n              <details>\n                <summary class=\"commands\">Local vars</summary>\n            \n            <table class=\"vars\" id=\"v2286953832320\">\n              <thead>\n                <tr>\n                  <th scope=\"col\">Variable</th>\n                  <th scope=\"col\">Value</th>\n                </tr>\n              </thead>\n              <tbody>\n                \n                  <tr>\n                    <td>request</td>\n                    <td class=\"code\"><pre>&lt;WSGIRequest: POST &#x27;/api/jenkins/build/latest?job_name=a-test-Pipeline&#x27;&gt;</pre></td>\n                  </tr>\n                \n                  <tr>\n                    <td>response</td>\n                    <td class=\"code\"><pre>&lt;HttpResponseNotFound status_code=404, &quot;text/html; charset=utf-8&quot;&gt;</pre></td>\n                  </tr>\n                \n                  <tr>\n                    <td>self</td>\n                    <td class=\"code\"><pre>&lt;CommonMiddleware get_response=convert_exception_to_response.&lt;locals&gt;.inner&gt;</pre></td>\n                  </tr>\n                \n              </tbody>\n            </table>\n            </details>\n          \n        </li>\n      \n        \n        <li class=\"frame django\">\n          \n            <code class=\"fname\">D:\\software\\CodeSF\\Miniconda3\\conda\\envs\\test_django\\lib\\site-packages\\django\\middleware\\common.py</code>, line 87, in get_full_path_with_slash\n          \n\n          \n            <div class=\"context\" id=\"c2286953830144\">\n              \n                <ol start=\"80\" class=\"pre-context\" id=\"pre2286953830144\">\n                \n                  <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>        Raise a RuntimeError if settings.DEBUG is True and request.method is</pre></li>\n                \n                  <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>        DELETE, POST, PUT, or PATCH.</pre></li>\n                \n                  <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>        &quot;&quot;&quot;</pre></li>\n                \n                  <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>        new_path = request.get_full_path(force_append_slash=True)</pre></li>\n                \n                  <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>        # Prevent construction of scheme relative urls.</pre></li>\n                \n                  <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>        new_path = escape_leading_slashes(new_path)</pre></li>\n                \n                  <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>        if settings.DEBUG and request.method in (&quot;DELETE&quot;, &quot;POST&quot;, &quot;PUT&quot;, &quot;PATCH&quot;):</pre></li>\n                \n                </ol>\n              \n              <ol start=\"87\" class=\"context-line\">\n                <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>            raise RuntimeError(</pre> <span>…</span></li>\n              </ol>\n              \n                <ol start='88' class=\"post-context\" id=\"post2286953830144\">\n                  \n                  <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>                &quot;You called this URL via %(method)s, but the URL doesn&#x27;t end &quot;</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>                &quot;in a slash and you have APPEND_SLASH set. Django can&#x27;t &quot;</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>                &quot;redirect to the slash URL while maintaining %(method)s data. &quot;</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>                &quot;Change your form to point to %(url)s (note the trailing &quot;</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>                &quot;slash), or set APPEND_SLASH=False in your Django settings.&quot;</pre></li>\n                  \n                  <li onclick=\"toggle('pre2286953830144', 'post2286953830144')\"><pre>                % {</pre></li>\n                  \n              </ol>\n              \n            </div>\n          \n\n          \n            \n              <details>\n                <summary class=\"commands\">Local vars</summary>\n            \n            <table class=\"vars\" id=\"v2286953830144\">\n              <thead>\n                <tr>\n                  <th scope=\"col\">Variable</th>\n                  <th scope=\"col\">Value</th>\n                </tr>\n              </thead>\n              <tbody>\n                \n                  <tr>\n                    <td>new_path</td>\n                    <td class=\"code\"><pre>&#x27;/api/jenkins/build/latest/?job_name=a-test-Pipeline&#x27;</pre></td>\n                  </tr>\n                \n                  <tr>\n                    <td>request</td>\n                    <td class=\"code\"><pre>&lt;WSGIRequest: POST &#x27;/api/jenkins/build/latest?job_name=a-test-Pipeline&#x27;&gt;</pre></td>\n                  </tr>\n                \n                  <tr>\n                    <td>self</td>\n                    <td class=\"code\"><pre>&lt;CommonMiddleware get_response=convert_exception_to_response.&lt;locals&gt;.inner&gt;</pre></td>\n                  </tr>\n                \n              </tbody>\n            </table>\n            </details>\n          \n        </li>\n      \n    </ul>\n  </div>\n\n  <form action=\"https://dpaste.com/\" name=\"pasteform\" id=\"pasteform\" method=\"post\">\n  <div id=\"pastebinTraceback\" class=\"pastebin\">\n    <input type=\"hidden\" name=\"language\" value=\"PythonConsole\">\n    <input type=\"hidden\" name=\"title\"\n      value=\"RuntimeError at /api/jenkins/build/latest\">\n    <input type=\"hidden\" name=\"source\" value=\"Django Dpaste Agent\">\n    <input type=\"hidden\" name=\"poster\" value=\"Django\">\n    <textarea name=\"content\" id=\"traceback_area\" cols=\"140\" rows=\"25\">\nEnvironment:\n\n\nRequest Method: POST\nRequest URL: http://localhost:8000/api/jenkins/build/latest?job_name=a-test-Pipeline\n\nDjango Version: 5.2.9\nPython Version: 3.10.19\nInstalled Applications:\n[&#x27;simpleui&#x27;,\n &#x27;django.contrib.admin&#x27;,\n &#x27;django.contrib.auth&#x27;,\n &#x27;django.contrib.contenttypes&#x27;,\n &#x27;django.contrib.sessions&#x27;,\n &#x27;django.contrib.messages&#x27;,\n &#x27;django.contrib.staticfiles&#x27;,\n &#x27;django_filters&#x27;,\n &#x27;corsheaders&#x27;,\n &#x27;rest_framework&#x27;,\n &#x27;rest_framework_simplejwt&#x27;,\n &#x27;django_celery_beat&#x27;,\n &#x27;drf_spectacular&#x27;,\n &#x27;drf_spectacular_sidecar&#x27;,\n &#x27;django_celery_results&#x27;,\n &#x27;user.apps.UserConfig&#x27;,\n &#x27;project.apps.ProjectConfig&#x27;,\n &#x27;interface.apps.InterfaceConfig&#x27;,\n &#x27;scene.apps.SceneConfig&#x27;,\n &#x27;plan.apps.PlanConfig&#x27;,\n &#x27;cronjob.apps.CronjobConfig&#x27;,\n &#x27;bug.apps.BugConfig&#x27;,\n &#x27;jenkins_integration.apps.JenkinsConfig&#x27;]\nInstalled Middleware:\n[&#x27;django.middleware.security.SecurityMiddleware&#x27;,\n &#x27;django.contrib.sessions.middleware.SessionMiddleware&#x27;,\n &#x27;corsheaders.middleware.CorsMiddleware&#x27;,\n &#x27;django.middleware.common.CommonMiddleware&#x27;,\n &#x27;django.contrib.auth.middleware.AuthenticationMiddleware&#x27;,\n &#x27;django.contrib.messages.middleware.MessageMiddleware&#x27;]\n\n\n\nTraceback (most recent call last):\n  File \"D:\\software\\CodeSF\\Miniconda3\\conda\\envs\\test_django\\lib\\site-packages\\django\\core\\handlers\\exception.py\", line 55, in inner\n    response = get_response(request)\n  File \"D:\\software\\CodeSF\\Miniconda3\\conda\\envs\\test_django\\lib\\site-packages\\django\\utils\\deprecation.py\", line 122, in __call__\n    response = self.process_response(request, response)\n  File \"D:\\software\\CodeSF\\Miniconda3\\conda\\envs\\test_django\\lib\\site-packages\\django\\middleware\\common.py\", line 108, in process_response\n    return self.response_redirect_class(self.get_full_path_with_slash(request))\n  File \"D:\\software\\CodeSF\\Miniconda3\\conda\\envs\\test_django\\lib\\site-packages\\django\\middleware\\common.py\", line 87, in get_full_path_with_slash\n    raise RuntimeError(\n\nException Type: RuntimeError at /api/jenkins/build/latest\nException Value: You called this URL via POST, but the URL doesn&#x27;t end in a slash and you have APPEND_SLASH set. Django can&#x27;t redirect to the slash URL while maintaining POST data. Change your form to point to localhost:8000/api/jenkins/build/latest/?job_name=a-test-Pipeline (note the trailing slash), or set APPEND_SLASH=False in your Django settings.\n</textarea>\n  <br><br>\n  <input type=\"submit\" value=\"Share this traceback on a public website\">\n  </div>\n</form>\n\n</div>\n\n\n<div id=\"requestinfo\">\n  <h2>Request information</h2>\n\n\n  \n    <h3 id=\"user-info\">USER</h3>\n    <p>AnonymousUser</p>\n  \n\n  <h3 id=\"get-info\">GET</h3>\n  \n    <table class=\"req\">\n      <thead>\n        <tr>\n          <th scope=\"col\">Variable</th>\n          <th scope=\"col\">Value</th>\n        </tr>\n      </thead>\n      <tbody>\n        \n          <tr>\n            <td>job_name</td>\n            <td class=\"code\"><pre>&#x27;a-test-Pipeline&#x27;</pre></td>\n          </tr>\n        \n      </tbody>\n    </table>\n  \n\n  <h3 id=\"post-info\">POST</h3>\n  \n    <p>No POST data</p>\n  \n\n  <h3 id=\"files-info\">FILES</h3>\n  \n    <p>No FILES data</p>\n  \n\n  <h3 id=\"cookie-info\">COOKIES</h3>\n  \n    <p>No cookie data</p>\n  \n\n  <h3 id=\"meta-info\">META</h3>\n  <table class=\"req\">\n    <thead>\n      <tr>\n        <th scope=\"col\">Variable</th>\n        <th scope=\"col\">Value</th>\n      </tr>\n    </thead>\n    <tbody>\n      \n        <tr>\n          <td>ALLUSERSPROFILE</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\ProgramData&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>ANTIGRAVITY_CLI_ALIAS</td>\n          <td class=\"code\"><pre>&#x27;agy&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>APPCODE_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\appcode.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>APPDATA</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Users\\\\akko\\\\AppData\\\\Roaming&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>AQUA_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\jihuo-tool-2024.2\\\\jetbra\\\\vmoptions\\\\aqua.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>BUNDLED_DEBUGPY_PATH</td>\n          <td class=\"code\"><pre>&#x27;c:\\\\Users\\\\akko\\\\.antigravity\\\\extensions\\\\ms-python.debugpy-2025.14.1-win32-x64\\\\bundled\\\\libs\\\\debugpy&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CHROME_CRASHPAD_PIPE_NAME</td>\n          <td class=\"code\"><pre>&#x27;\\\\\\\\.\\\\pipe\\\\crashpad_15264_QAPVABGIHOJQUPRV&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CLION_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\clion.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>COLORTERM</td>\n          <td class=\"code\"><pre>&#x27;truecolor&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>COMMONPROGRAMFILES</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Program Files\\\\Common Files&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>COMMONPROGRAMFILES(X86)</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Program Files (x86)\\\\Common Files&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>COMMONPROGRAMW6432</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Program Files\\\\Common Files&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>COMPUTERNAME</td>\n          <td class=\"code\"><pre>&#x27;DESKTOP-5DADE89&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>COMSPEC</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\WINDOWS\\\\system32\\\\cmd.exe&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CONDA_DEFAULT_ENV</td>\n          <td class=\"code\"><pre>&#x27;test_django&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CONDA_EXE</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\Scripts\\\\conda.exe&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CONDA_PREFIX</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CONDA_PREFIX_1</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CONDA_PROMPT_MODIFIER</td>\n          <td class=\"code\"><pre>&#x27;(test_django) &#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CONDA_PYTHON_EXE</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\python.exe&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CONDA_SHLVL</td>\n          <td class=\"code\"><pre>&#x27;2&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CONTENT_LENGTH</td>\n          <td class=\"code\"><pre>&#x27;0&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CONTENT_TYPE</td>\n          <td class=\"code\"><pre>&#x27;text/plain&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DATAGRIP_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\datagrip.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DATASPELL_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\dataspell.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DEVECOSTUDIO_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\devecostudio.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DJANGO_SETTINGS_MODULE</td>\n          <td class=\"code\"><pre>&#x27;backend.settings&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DRIVERDATA</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Windows\\\\System32\\\\Drivers\\\\DriverData&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>EFC_8280_1592913036</td>\n          <td class=\"code\"><pre>&#x27;1&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>GATEWAY_INTERFACE</td>\n          <td class=\"code\"><pre>&#x27;CGI/1.1&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>GATEWAY_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\gateway.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>GIT_ASKPASS</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>GOLAND_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\goland.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>GOPATH</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\environment\\\\GoWorkspace&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>GOROOT</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\environment\\\\Goland&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>HOMEDRIVE</td>\n          <td class=\"code\"><pre>&#x27;C:&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>HOMEPATH</td>\n          <td class=\"code\"><pre>&#x27;\\\\Users\\\\akko&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>HTTP_ACCEPT</td>\n          <td class=\"code\"><pre>&#x27;*/*&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>HTTP_ACCEPT_ENCODING</td>\n          <td class=\"code\"><pre>&#x27;gzip, deflate, br&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>HTTP_CONNECTION</td>\n          <td class=\"code\"><pre>&#x27;keep-alive&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>HTTP_HOST</td>\n          <td class=\"code\"><pre>&#x27;localhost:8000&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>HTTP_USER_AGENT</td>\n          <td class=\"code\"><pre>&#x27;Apifox/1.0.0 (https://apifox.com)&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>IDEA_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\idea.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>INTELLIJ IDEA</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\IntelliJ IDEA 2024.1.2\\\\bin;&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>JAVA_HOME</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\environment\\\\Jenv\\\\Java\\\\jdk17&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>JETBRAINSCLIENT_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\jetbrainsclient.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>JETBRAINS_CLIENT_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\jetbrains_client.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LANG</td>\n          <td class=\"code\"><pre>&#x27;en_US.UTF-8&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LOCALAPPDATA</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Users\\\\akko\\\\AppData\\\\Local&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LOGONSERVER</td>\n          <td class=\"code\"><pre>&#x27;\\\\\\\\DESKTOP-5DADE89&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>M2_HOME</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\environment\\\\apache-maven-3.5.4\\\\repository&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>MAVEN_HOME</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\environment\\\\apache-maven-3.5.4&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>NODE_PATH</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\environment\\\\nodejs\\\\node_modules&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>NUMBER_OF_PROCESSORS</td>\n          <td class=\"code\"><pre>&#x27;24&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>NVM_HOME</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\environment\\\\nvm\\\\nvm&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>NVM_SYMLINK</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Program Files\\\\nodejs&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>OLLAMA_MODELS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\Ollama\\\\model&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>ONEDRIVE</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Users\\\\akko\\\\OneDrive&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>ONEDRIVECONSUMER</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Users\\\\akko\\\\OneDrive&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>ORIGINAL_XDG_CURRENT_DESKTOP</td>\n          <td class=\"code\"><pre>&#x27;undefined&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>OS</td>\n          <td class=\"code\"><pre>&#x27;Windows_NT&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PATH</td>\n          <td class=\"code\"><pre>(&#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django\\\\Library\\\\mingw-w64\\\\bin;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django\\\\Library\\\\usr\\\\bin;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django\\\\Library\\\\bin;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django\\\\Scripts;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django\\\\bin;C:\\\\Program &#x27;\n &#x27;Files\\\\OpenSSH;D:\\\\environment\\\\Jenv\\\\JEnv-for-Windows-2.2.1;C:\\\\Program &#x27;\n &#x27;Files\\\\Common &#x27;\n &#x27;Files\\\\Oracle\\\\Java\\\\javapath;D:\\\\environment\\\\python\\\\Scripts;D:\\\\environment\\\\python;D:\\\\software\\\\CodeSF\\\\VM16\\\\bin;C:\\\\Program &#x27;\n &#x27;Files (x86)\\\\Common &#x27;\n &#x27;Files\\\\Oracle\\\\Java\\\\javapath;C:\\\\Windows\\\\system32;C:\\\\Windows;C:\\\\Windows\\\\System32\\\\Wbem;C:\\\\Windows\\\\System32\\\\WindowsPowerShell\\\\v1.0;C:\\\\Windows\\\\System32\\\\OpenSSH;C:\\\\Program &#x27;\n &#x27;Files\\\\dotnet;C:\\\\Program Files (x86)\\\\NVIDIA &#x27;\n &#x27;Corporation\\\\PhysX\\\\Common;C:\\\\Program Files\\\\NVIDIA Corporation\\\\NVIDIA &#x27;\n &#x27;NvDLISR;C:\\\\Program Files\\\\Java\\\\jdk1.8.0_191\\\\bin;C:\\\\Program &#x27;\n &#x27;Files\\\\Java\\\\jdk1.8.0_191\\\\jre\\\\bin;D:\\\\environment\\\\redis64-3.0.501;D:\\\\environment\\\\apache-maven-3.5.4\\\\bin;D:\\\\environment\\\\nodejs\\\\node_modules;node_global;D:\\\\environment\\\\mysql-5.7.26-winx64\\\\mysql-5.7.26-winx64\\\\bin;D:\\\\software\\\\CodeSF\\\\Xshell;D:\\\\environment\\\\Goland\\\\bin;D:\\\\software\\\\CodeSF\\\\putty;D:\\\\environment\\\\git\\\\Git\\\\cmd;D:\\\\environment\\\\nvm\\\\nvm;C:\\\\Program &#x27;\n &#x27;Files\\\\nodejs;c:\\\\Users\\\\akko\\\\AppData\\\\Local\\\\Programs\\\\cursor\\\\resources\\\\app\\\\bin;C:\\\\Program &#x27;\n &#x27;Files\\\\Docker\\\\Docker\\\\resources\\\\bin;D:\\\\software\\\\CodeSF\\\\JMeter\\\\apache-jmeter-5.6.3\\\\bin;D:\\\\software\\\\dairySF\\\\Bandizip;D:\\\\environment\\\\nodejs\\\\node_global\\\\node_modules\\\\yarn\\\\bin;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\Scripts;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\condabin;C:\\\\WINDOWS\\\\system32;C:\\\\WINDOWS;C:\\\\WINDOWS\\\\System32\\\\Wbem;C:\\\\WINDOWS\\\\System32\\\\WindowsPowerShell\\\\v1.0;C:\\\\WINDOWS\\\\System32\\\\OpenSSH;D:\\\\environment\\\\nodejs\\\\node_global;D:\\\\environment\\\\fluttter\\\\flutter\\\\bin;D:\\\\environment\\\\allure\\\\allure-2.35.1\\\\bin;D:\\\\environment\\\\Jenv\\\\jenv-0.5.9;C:\\\\Program &#x27;\n &#x27;Files\\\\MySQL\\\\MySQL Shell &#x27;\n &#x27;8.0\\\\bin;node_global;D:\\\\software\\\\CodeSF\\\\idea\\\\IntelliJ IDEA &#x27;\n &#x27;2024.1.2\\\\bin;D:\\\\software\\\\CodeSF\\\\vsCode\\\\Microsoft VS &#x27;\n &#x27;Code\\\\bin;C:\\\\Users\\\\akko\\\\go\\\\bin;C:\\\\Users\\\\akko\\\\AppData\\\\Roaming\\\\npm;D:\\\\software\\\\OfficeSF\\\\project_graph\\\\Project &#x27;\n &#x27;Graph;D:\\\\environment\\\\nvm\\\\nvm;C:\\\\Program &#x27;\n &#x27;Files\\\\nodejs;C:\\\\Users\\\\akko\\\\.lmstudio\\\\bin;C:\\\\Users\\\\akko\\\\AppData\\\\Local\\\\Programs\\\\Ollama;D:\\\\software\\\\CodeSF\\\\Ollama;C:\\\\Users\\\\akko\\\\AppData\\\\Local\\\\Microsoft\\\\WindowsApps;D:\\\\software\\\\CodeSF\\\\Antigravity\\\\Antigravity\\\\bin;c:\\\\Users\\\\akko\\\\.antigravity\\\\extensions\\\\ms-python.debugpy-2025.14.1-win32-x64\\\\bundled\\\\scripts\\\\noConfigScripts&#x27;)</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PATHEXT</td>\n          <td class=\"code\"><pre>&#x27;.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC;.PY;.PYW;.CPL&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PATH_INFO</td>\n          <td class=\"code\"><pre>&#x27;/api/jenkins/build/latest&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PHPSTORM_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\phpstorm.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PROCESSOR_ARCHITECTURE</td>\n          <td class=\"code\"><pre>&#x27;AMD64&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PROCESSOR_IDENTIFIER</td>\n          <td class=\"code\"><pre>&#x27;Intel64 Family 6 Model 183 Stepping 1, GenuineIntel&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PROCESSOR_LEVEL</td>\n          <td class=\"code\"><pre>&#x27;6&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PROCESSOR_REVISION</td>\n          <td class=\"code\"><pre>&#x27;b701&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PROGRAMDATA</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\ProgramData&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PROGRAMFILES</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Program Files&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PROGRAMFILES(X86)</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Program Files (x86)&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PROGRAMW6432</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Program Files&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PSMODULEPATH</td>\n          <td class=\"code\"><pre>(&#x27;C:\\\\Users\\\\akko\\\\Documents\\\\WindowsPowerShell\\\\Modules;C:\\\\Program &#x27;\n &#x27;Files\\\\WindowsPowerShell\\\\Modules;C:\\\\WINDOWS\\\\system32\\\\WindowsPowerShell\\\\v1.0\\\\Modules&#x27;)</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PUBLIC</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Users\\\\Public&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PYCHARM_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\pycharm.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PYDEVD_DISABLE_FILE_VALIDATION</td>\n          <td class=\"code\"><pre>&#x27;1&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PYTHONSTARTUP</td>\n          <td class=\"code\"><pre>&#x27;c:\\\\Users\\\\akko\\\\AppData\\\\Roaming\\\\Antigravity\\\\User\\\\workspaceStorage\\\\a05c17e0b2a380f9bed275d18c1c66f2\\\\ms-python.python\\\\pythonrc.py&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PYTHON_BASIC_REPL</td>\n          <td class=\"code\"><pre>&#x27;1&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>QUERY_STRING</td>\n          <td class=\"code\"><pre>&#x27;job_name=a-test-Pipeline&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>REMOTE_ADDR</td>\n          <td class=\"code\"><pre>&#x27;127.0.0.1&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>REMOTE_HOST</td>\n          <td class=\"code\"><pre>&#x27;&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>REQUEST_METHOD</td>\n          <td class=\"code\"><pre>&#x27;POST&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>RIDER_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\rider.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>RUBYMINE_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\rubymine.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>RUN_MAIN</td>\n          <td class=\"code\"><pre>&#x27;true&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>RUSTROVER_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\jihuo-tool-2024.2\\\\jetbra\\\\vmoptions\\\\rustrover.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SCRIPT_NAME</td>\n          <td class=\"code\"><pre>&#x27;&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SERVER_NAME</td>\n          <td class=\"code\"><pre>&#x27;155133.xyz&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SERVER_PORT</td>\n          <td class=\"code\"><pre>&#x27;8000&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SERVER_PROTOCOL</td>\n          <td class=\"code\"><pre>&#x27;HTTP/1.1&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SERVER_SOFTWARE</td>\n          <td class=\"code\"><pre>&#x27;WSGIServer/0.2&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSIONNAME</td>\n          <td class=\"code\"><pre>&#x27;Console&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SSL_CERT_DIR</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django\\\\Library\\\\ssl\\\\certs&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SSL_CERT_FILE</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\envs\\\\test_django\\\\Library\\\\ssl\\\\cacert.pem&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>STUDIO_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\studio.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SYSTEMDRIVE</td>\n          <td class=\"code\"><pre>&#x27;C:&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SYSTEMROOT</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\WINDOWS&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>TEMP</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Users\\\\akko\\\\AppData\\\\Local\\\\Temp&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>TERM_PROGRAM</td>\n          <td class=\"code\"><pre>&#x27;vscode&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>TERM_PROGRAM_VERSION</td>\n          <td class=\"code\"><pre>&#x27;1.104.0&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>TMP</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Users\\\\akko\\\\AppData\\\\Local\\\\Temp&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>USERDOMAIN</td>\n          <td class=\"code\"><pre>&#x27;DESKTOP-5DADE89&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>USERDOMAIN_ROAMINGPROFILE</td>\n          <td class=\"code\"><pre>&#x27;DESKTOP-5DADE89&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>USERNAME</td>\n          <td class=\"code\"><pre>&#x27;akko&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>USERPROFILE</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\Users\\\\akko&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>VBOX_MSI_INSTALL_PATH</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\student\\\\computerNetwork\\\\VMBox\\\\&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>VSCODE_DEBUGPY_ADAPTER_ENDPOINTS</td>\n          <td class=\"code\"><pre>&#x27;c:\\\\Users\\\\akko\\\\.antigravity\\\\extensions\\\\ms-python.debugpy-2025.14.1-win32-x64\\\\.noConfigDebugAdapterEndpoints\\\\endpoint-c7b159a61ee0f872.txt&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>VSCODE_GIT_ASKPASS_EXTRA_ARGS</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>VSCODE_GIT_ASKPASS_MAIN</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>VSCODE_GIT_ASKPASS_NODE</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>VSCODE_GIT_IPC_HANDLE</td>\n          <td class=\"code\"><pre>&#x27;\\\\\\\\.\\\\pipe\\\\vscode-git-67820d6c8b-sock&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>VSCODE_INJECTION</td>\n          <td class=\"code\"><pre>&#x27;1&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>VSCODE_PYTHON_AUTOACTIVATE_GUARD</td>\n          <td class=\"code\"><pre>&#x27;1&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>WEBIDE_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\webide.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>WEBSTORM_VM_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\idea\\\\win2021-2024\\\\vmoptions\\\\webstorm.vmoptions&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>WINDIR</td>\n          <td class=\"code\"><pre>&#x27;C:\\\\WINDOWS&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>ZES_ENABLE_SYSMAN</td>\n          <td class=\"code\"><pre>&#x27;1&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>_CONDA_EXE</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda\\\\Scripts\\\\conda.exe&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>_CONDA_ROOT</td>\n          <td class=\"code\"><pre>&#x27;D:\\\\software\\\\CodeSF\\\\Miniconda3\\\\conda&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>__CONDA_OPENSSL_CERT_DIR_SET</td>\n          <td class=\"code\"><pre>&#x27;1&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>__CONDA_OPENSSL_CERT_FILE_SET</td>\n          <td class=\"code\"><pre>&#x27;1&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>wsgi.errors</td>\n          <td class=\"code\"><pre>&lt;_io.TextIOWrapper name=&#x27;&lt;stderr&gt;&#x27; mode=&#x27;w&#x27; encoding=&#x27;utf-8&#x27;&gt;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>wsgi.file_wrapper</td>\n          <td class=\"code\"><pre>&lt;class &#x27;wsgiref.util.FileWrapper&#x27;&gt;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>wsgi.input</td>\n          <td class=\"code\"><pre>&lt;django.core.handlers.wsgi.LimitedStream object at 0x000002147A196D40&gt;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>wsgi.multiprocess</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>wsgi.multithread</td>\n          <td class=\"code\"><pre>True</pre></td>\n        </tr>\n      \n        <tr>\n          <td>wsgi.run_once</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>wsgi.url_scheme</td>\n          <td class=\"code\"><pre>&#x27;http&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>wsgi.version</td>\n          <td class=\"code\"><pre>(1, 0)</pre></td>\n        </tr>\n      \n    </tbody>\n  </table>\n\n\n  <h3 id=\"settings-info\">Settings</h3>\n  <h4>Using settings module <code>backend.settings</code></h4>\n  <table class=\"req\">\n    <thead>\n      <tr>\n        <th scope=\"col\">Setting</th>\n        <th scope=\"col\">Value</th>\n      </tr>\n    </thead>\n    <tbody>\n      \n        <tr>\n          <td>ABSOLUTE_URL_OVERRIDES</td>\n          <td class=\"code\"><pre>{}</pre></td>\n        </tr>\n      \n        <tr>\n          <td>ADMINS</td>\n          <td class=\"code\"><pre>[]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>ALLOWED_HOSTS</td>\n          <td class=\"code\"><pre>[&#x27;*&#x27;]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>APPEND_SLASH</td>\n          <td class=\"code\"><pre>True</pre></td>\n        </tr>\n      \n        <tr>\n          <td>AUTHENTICATION_BACKENDS</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>AUTH_PASSWORD_VALIDATORS</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>AUTH_USER_MODEL</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>BASE_DIR</td>\n          <td class=\"code\"><pre>WindowsPath(&#x27;D:/data/xianYu/test_django/api_django/backend&#x27;)</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CACHES</td>\n          <td class=\"code\"><pre>{&#x27;default&#x27;: {&#x27;BACKEND&#x27;: &#x27;django.core.cache.backends.locmem.LocMemCache&#x27;}}</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CACHE_MIDDLEWARE_ALIAS</td>\n          <td class=\"code\"><pre>&#x27;default&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CACHE_MIDDLEWARE_KEY_PREFIX</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CACHE_MIDDLEWARE_SECONDS</td>\n          <td class=\"code\"><pre>600</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CELERYD_FORCE_EXECV</td>\n          <td class=\"code\"><pre>True</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CELERY_BEAT_SCHEDULER</td>\n          <td class=\"code\"><pre>&#x27;django_celery_beat.schedulers:DatabaseScheduler&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CELERY_BROKER_URL</td>\n          <td class=\"code\"><pre>&#x27;redis://:123456py@127.0.0.1:6379/4&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CELERY_ENABLE_UTC</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CELERY_RESULT_BACKEND</td>\n          <td class=\"code\"><pre>&#x27;django-db&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CELERY_TASK_TIME_LIMIT</td>\n          <td class=\"code\"><pre>1800</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CELERY_TASK_TRACK_STARTED</td>\n          <td class=\"code\"><pre>True</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CELERY_TIMEZONE</td>\n          <td class=\"code\"><pre>&#x27;Asia/Shanghai&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CELERY_WORKER_HIJACK_ROOT_LOGGER</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CELERY_WORKER_PREFETCH_MULTIPLIER</td>\n          <td class=\"code\"><pre>1</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CORS_ALLOW_ALL_ORIGINS</td>\n          <td class=\"code\"><pre>True</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CORS_ALLOW_CREDENTIALS</td>\n          <td class=\"code\"><pre>True</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CORS_ALLOW_METHODS</td>\n          <td class=\"code\"><pre>(&#x27;DELETE&#x27;, &#x27;GET&#x27;, &#x27;OPTIONS&#x27;, &#x27;PATCH&#x27;, &#x27;POST&#x27;, &#x27;PUT&#x27;, &#x27;VIEW&#x27;)</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CSRF_COOKIE_AGE</td>\n          <td class=\"code\"><pre>31449600</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CSRF_COOKIE_DOMAIN</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CSRF_COOKIE_HTTPONLY</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CSRF_COOKIE_NAME</td>\n          <td class=\"code\"><pre>&#x27;csrftoken&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CSRF_COOKIE_PATH</td>\n          <td class=\"code\"><pre>&#x27;/&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CSRF_COOKIE_SAMESITE</td>\n          <td class=\"code\"><pre>&#x27;Lax&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CSRF_COOKIE_SECURE</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CSRF_FAILURE_VIEW</td>\n          <td class=\"code\"><pre>&#x27;django.views.csrf.csrf_failure&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CSRF_HEADER_NAME</td>\n          <td class=\"code\"><pre>&#x27;HTTP_X_CSRFTOKEN&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CSRF_TRUSTED_ORIGINS</td>\n          <td class=\"code\"><pre>[&#x27;https://*.ngrok-free.app&#x27;]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>CSRF_USE_SESSIONS</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DATABASES</td>\n          <td class=\"code\"><pre>{&#x27;default&#x27;: {&#x27;ATOMIC_REQUESTS&#x27;: False,\n             &#x27;AUTOCOMMIT&#x27;: True,\n             &#x27;CONN_HEALTH_CHECKS&#x27;: False,\n             &#x27;CONN_MAX_AGE&#x27;: 0,\n             &#x27;ENGINE&#x27;: &#x27;django.db.backends.mysql&#x27;,\n             &#x27;HOST&#x27;: &#x27;127.0.0.1&#x27;,\n             &#x27;NAME&#x27;: &#x27;django&#x27;,\n             &#x27;OPTIONS&#x27;: {},\n             &#x27;PASSWORD&#x27;: &#x27;********************&#x27;,\n             &#x27;PORT&#x27;: &#x27;9527&#x27;,\n             &#x27;TEST&#x27;: {&#x27;CHARSET&#x27;: None,\n                      &#x27;COLLATION&#x27;: None,\n                      &#x27;MIGRATE&#x27;: True,\n                      &#x27;MIRROR&#x27;: None,\n                      &#x27;NAME&#x27;: None},\n             &#x27;TIME_ZONE&#x27;: None,\n             &#x27;USER&#x27;: &#x27;root&#x27;}}</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DATABASE_ROUTERS</td>\n          <td class=\"code\"><pre>[]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DATA_UPLOAD_MAX_MEMORY_SIZE</td>\n          <td class=\"code\"><pre>2621440</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DATA_UPLOAD_MAX_NUMBER_FIELDS</td>\n          <td class=\"code\"><pre>1000</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DATA_UPLOAD_MAX_NUMBER_FILES</td>\n          <td class=\"code\"><pre>100</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DATETIME_FORMAT</td>\n          <td class=\"code\"><pre>&#x27;N j, Y, P&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DATETIME_INPUT_FORMATS</td>\n          <td class=\"code\"><pre>[&#x27;%Y-%m-%d %H:%M:%S&#x27;,\n &#x27;%Y-%m-%d %H:%M:%S.%f&#x27;,\n &#x27;%Y-%m-%d %H:%M&#x27;,\n &#x27;%m/%d/%Y %H:%M:%S&#x27;,\n &#x27;%m/%d/%Y %H:%M:%S.%f&#x27;,\n &#x27;%m/%d/%Y %H:%M&#x27;,\n &#x27;%m/%d/%y %H:%M:%S&#x27;,\n &#x27;%m/%d/%y %H:%M:%S.%f&#x27;,\n &#x27;%m/%d/%y %H:%M&#x27;]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DATE_FORMAT</td>\n          <td class=\"code\"><pre>&#x27;N j, Y&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DATE_INPUT_FORMATS</td>\n          <td class=\"code\"><pre>[&#x27;%Y-%m-%d&#x27;,\n &#x27;%m/%d/%Y&#x27;,\n &#x27;%m/%d/%y&#x27;,\n &#x27;%b %d %Y&#x27;,\n &#x27;%b %d, %Y&#x27;,\n &#x27;%d %b %Y&#x27;,\n &#x27;%d %b, %Y&#x27;,\n &#x27;%B %d %Y&#x27;,\n &#x27;%B %d, %Y&#x27;,\n &#x27;%d %B %Y&#x27;,\n &#x27;%d %B, %Y&#x27;]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DEBUG</td>\n          <td class=\"code\"><pre>True</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DEBUG_PROPAGATE_EXCEPTIONS</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DECIMAL_SEPARATOR</td>\n          <td class=\"code\"><pre>&#x27;.&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DEFAULT_AUTO_FIELD</td>\n          <td class=\"code\"><pre>&#x27;django.db.models.BigAutoField&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DEFAULT_CHARSET</td>\n          <td class=\"code\"><pre>&#x27;utf-8&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DEFAULT_EXCEPTION_REPORTER</td>\n          <td class=\"code\"><pre>&#x27;django.views.debug.ExceptionReporter&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DEFAULT_EXCEPTION_REPORTER_FILTER</td>\n          <td class=\"code\"><pre>&#x27;django.views.debug.SafeExceptionReporterFilter&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DEFAULT_FROM_EMAIL</td>\n          <td class=\"code\"><pre>&#x27;webmaster@localhost&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DEFAULT_INDEX_TABLESPACE</td>\n          <td class=\"code\"><pre>&#x27;&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DEFAULT_TABLESPACE</td>\n          <td class=\"code\"><pre>&#x27;&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DISALLOWED_USER_AGENTS</td>\n          <td class=\"code\"><pre>[]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>DJANGO_CELERY_BEAT_TZ_AWARE</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>EMAIL_BACKEND</td>\n          <td class=\"code\"><pre>&#x27;django.core.mail.backends.smtp.EmailBackend&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>EMAIL_HOST</td>\n          <td class=\"code\"><pre>&#x27;localhost&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>EMAIL_HOST_PASSWORD</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>EMAIL_HOST_USER</td>\n          <td class=\"code\"><pre>&#x27;&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>EMAIL_PORT</td>\n          <td class=\"code\"><pre>25</pre></td>\n        </tr>\n      \n        <tr>\n          <td>EMAIL_SSL_CERTFILE</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>EMAIL_SSL_KEYFILE</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>EMAIL_SUBJECT_PREFIX</td>\n          <td class=\"code\"><pre>&#x27;[Django] &#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>EMAIL_TIMEOUT</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>EMAIL_USE_LOCALTIME</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>EMAIL_USE_SSL</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>EMAIL_USE_TLS</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>FILE_UPLOAD_DIRECTORY_PERMISSIONS</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>FILE_UPLOAD_HANDLERS</td>\n          <td class=\"code\"><pre>[&#x27;django.core.files.uploadhandler.MemoryFileUploadHandler&#x27;,\n &#x27;django.core.files.uploadhandler.TemporaryFileUploadHandler&#x27;]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>FILE_UPLOAD_MAX_MEMORY_SIZE</td>\n          <td class=\"code\"><pre>2621440</pre></td>\n        </tr>\n      \n        <tr>\n          <td>FILE_UPLOAD_PERMISSIONS</td>\n          <td class=\"code\"><pre>420</pre></td>\n        </tr>\n      \n        <tr>\n          <td>FILE_UPLOAD_TEMP_DIR</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>FIRST_DAY_OF_WEEK</td>\n          <td class=\"code\"><pre>0</pre></td>\n        </tr>\n      \n        <tr>\n          <td>FIXTURE_DIRS</td>\n          <td class=\"code\"><pre>[]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>FORCE_SCRIPT_NAME</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>FORMAT_MODULE_PATH</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>FORMS_URLFIELD_ASSUME_HTTPS</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>FORM_RENDERER</td>\n          <td class=\"code\"><pre>&#x27;django.forms.renderers.DjangoTemplates&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>IGNORABLE_404_URLS</td>\n          <td class=\"code\"><pre>[]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>INSTALLED_APPS</td>\n          <td class=\"code\"><pre>[&#x27;simpleui&#x27;,\n &#x27;django.contrib.admin&#x27;,\n &#x27;django.contrib.auth&#x27;,\n &#x27;django.contrib.contenttypes&#x27;,\n &#x27;django.contrib.sessions&#x27;,\n &#x27;django.contrib.messages&#x27;,\n &#x27;django.contrib.staticfiles&#x27;,\n &#x27;django_filters&#x27;,\n &#x27;corsheaders&#x27;,\n &#x27;rest_framework&#x27;,\n &#x27;rest_framework_simplejwt&#x27;,\n &#x27;django_celery_beat&#x27;,\n &#x27;drf_spectacular&#x27;,\n &#x27;drf_spectacular_sidecar&#x27;,\n &#x27;django_celery_results&#x27;,\n &#x27;user.apps.UserConfig&#x27;,\n &#x27;project.apps.ProjectConfig&#x27;,\n &#x27;interface.apps.InterfaceConfig&#x27;,\n &#x27;scene.apps.SceneConfig&#x27;,\n &#x27;plan.apps.PlanConfig&#x27;,\n &#x27;cronjob.apps.CronjobConfig&#x27;,\n &#x27;bug.apps.BugConfig&#x27;,\n &#x27;jenkins_integration.apps.JenkinsConfig&#x27;]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>INTERNAL_IPS</td>\n          <td class=\"code\"><pre>[]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LANGUAGES</td>\n          <td class=\"code\"><pre>[(&#x27;af&#x27;, &#x27;Afrikaans&#x27;),\n (&#x27;ar&#x27;, &#x27;Arabic&#x27;),\n (&#x27;ar-dz&#x27;, &#x27;Algerian Arabic&#x27;),\n (&#x27;ast&#x27;, &#x27;Asturian&#x27;),\n (&#x27;az&#x27;, &#x27;Azerbaijani&#x27;),\n (&#x27;bg&#x27;, &#x27;Bulgarian&#x27;),\n (&#x27;be&#x27;, &#x27;Belarusian&#x27;),\n (&#x27;bn&#x27;, &#x27;Bengali&#x27;),\n (&#x27;br&#x27;, &#x27;Breton&#x27;),\n (&#x27;bs&#x27;, &#x27;Bosnian&#x27;),\n (&#x27;ca&#x27;, &#x27;Catalan&#x27;),\n (&#x27;ckb&#x27;, &#x27;Central Kurdish (Sorani)&#x27;),\n (&#x27;cs&#x27;, &#x27;Czech&#x27;),\n (&#x27;cy&#x27;, &#x27;Welsh&#x27;),\n (&#x27;da&#x27;, &#x27;Danish&#x27;),\n (&#x27;de&#x27;, &#x27;German&#x27;),\n (&#x27;dsb&#x27;, &#x27;Lower Sorbian&#x27;),\n (&#x27;el&#x27;, &#x27;Greek&#x27;),\n (&#x27;en&#x27;, &#x27;English&#x27;),\n (&#x27;en-au&#x27;, &#x27;Australian English&#x27;),\n (&#x27;en-gb&#x27;, &#x27;British English&#x27;),\n (&#x27;eo&#x27;, &#x27;Esperanto&#x27;),\n (&#x27;es&#x27;, &#x27;Spanish&#x27;),\n (&#x27;es-ar&#x27;, &#x27;Argentinian Spanish&#x27;),\n (&#x27;es-co&#x27;, &#x27;Colombian Spanish&#x27;),\n (&#x27;es-mx&#x27;, &#x27;Mexican Spanish&#x27;),\n (&#x27;es-ni&#x27;, &#x27;Nicaraguan Spanish&#x27;),\n (&#x27;es-ve&#x27;, &#x27;Venezuelan Spanish&#x27;),\n (&#x27;et&#x27;, &#x27;Estonian&#x27;),\n (&#x27;eu&#x27;, &#x27;Basque&#x27;),\n (&#x27;fa&#x27;, &#x27;Persian&#x27;),\n (&#x27;fi&#x27;, &#x27;Finnish&#x27;),\n (&#x27;fr&#x27;, &#x27;French&#x27;),\n (&#x27;fy&#x27;, &#x27;Frisian&#x27;),\n (&#x27;ga&#x27;, &#x27;Irish&#x27;),\n (&#x27;gd&#x27;, &#x27;Scottish Gaelic&#x27;),\n (&#x27;gl&#x27;, &#x27;Galician&#x27;),\n (&#x27;he&#x27;, &#x27;Hebrew&#x27;),\n (&#x27;hi&#x27;, &#x27;Hindi&#x27;),\n (&#x27;hr&#x27;, &#x27;Croatian&#x27;),\n (&#x27;hsb&#x27;, &#x27;Upper Sorbian&#x27;),\n (&#x27;hu&#x27;, &#x27;Hungarian&#x27;),\n (&#x27;hy&#x27;, &#x27;Armenian&#x27;),\n (&#x27;ia&#x27;, &#x27;Interlingua&#x27;),\n (&#x27;id&#x27;, &#x27;Indonesian&#x27;),\n (&#x27;ig&#x27;, &#x27;Igbo&#x27;),\n (&#x27;io&#x27;, &#x27;Ido&#x27;),\n (&#x27;is&#x27;, &#x27;Icelandic&#x27;),\n (&#x27;it&#x27;, &#x27;Italian&#x27;),\n (&#x27;ja&#x27;, &#x27;Japanese&#x27;),\n (&#x27;ka&#x27;, &#x27;Georgian&#x27;),\n (&#x27;kab&#x27;, &#x27;Kabyle&#x27;),\n (&#x27;kk&#x27;, &#x27;Kazakh&#x27;),\n (&#x27;km&#x27;, &#x27;Khmer&#x27;),\n (&#x27;kn&#x27;, &#x27;Kannada&#x27;),\n (&#x27;ko&#x27;, &#x27;Korean&#x27;),\n (&#x27;ky&#x27;, &#x27;Kyrgyz&#x27;),\n (&#x27;lb&#x27;, &#x27;Luxembourgish&#x27;),\n (&#x27;lt&#x27;, &#x27;Lithuanian&#x27;),\n (&#x27;lv&#x27;, &#x27;Latvian&#x27;),\n (&#x27;mk&#x27;, &#x27;Macedonian&#x27;),\n (&#x27;ml&#x27;, &#x27;Malayalam&#x27;),\n (&#x27;mn&#x27;, &#x27;Mongolian&#x27;),\n (&#x27;mr&#x27;, &#x27;Marathi&#x27;),\n (&#x27;ms&#x27;, &#x27;Malay&#x27;),\n (&#x27;my&#x27;, &#x27;Burmese&#x27;),\n (&#x27;nb&#x27;, &#x27;Norwegian Bokmål&#x27;),\n (&#x27;ne&#x27;, &#x27;Nepali&#x27;),\n (&#x27;nl&#x27;, &#x27;Dutch&#x27;),\n (&#x27;nn&#x27;, &#x27;Norwegian Nynorsk&#x27;),\n (&#x27;os&#x27;, &#x27;Ossetic&#x27;),\n (&#x27;pa&#x27;, &#x27;Punjabi&#x27;),\n (&#x27;pl&#x27;, &#x27;Polish&#x27;),\n (&#x27;pt&#x27;, &#x27;Portuguese&#x27;),\n (&#x27;pt-br&#x27;, &#x27;Brazilian Portuguese&#x27;),\n (&#x27;ro&#x27;, &#x27;Romanian&#x27;),\n (&#x27;ru&#x27;, &#x27;Russian&#x27;),\n (&#x27;sk&#x27;, &#x27;Slovak&#x27;),\n (&#x27;sl&#x27;, &#x27;Slovenian&#x27;),\n (&#x27;sq&#x27;, &#x27;Albanian&#x27;),\n (&#x27;sr&#x27;, &#x27;Serbian&#x27;),\n (&#x27;sr-latn&#x27;, &#x27;Serbian Latin&#x27;),\n (&#x27;sv&#x27;, &#x27;Swedish&#x27;),\n (&#x27;sw&#x27;, &#x27;Swahili&#x27;),\n (&#x27;ta&#x27;, &#x27;Tamil&#x27;),\n (&#x27;te&#x27;, &#x27;Telugu&#x27;),\n (&#x27;tg&#x27;, &#x27;Tajik&#x27;),\n (&#x27;th&#x27;, &#x27;Thai&#x27;),\n (&#x27;tk&#x27;, &#x27;Turkmen&#x27;),\n (&#x27;tr&#x27;, &#x27;Turkish&#x27;),\n (&#x27;tt&#x27;, &#x27;Tatar&#x27;),\n (&#x27;udm&#x27;, &#x27;Udmurt&#x27;),\n (&#x27;ug&#x27;, &#x27;Uyghur&#x27;),\n (&#x27;uk&#x27;, &#x27;Ukrainian&#x27;),\n (&#x27;ur&#x27;, &#x27;Urdu&#x27;),\n (&#x27;uz&#x27;, &#x27;Uzbek&#x27;),\n (&#x27;vi&#x27;, &#x27;Vietnamese&#x27;),\n (&#x27;zh-hans&#x27;, &#x27;Simplified Chinese&#x27;),\n (&#x27;zh-hant&#x27;, &#x27;Traditional Chinese&#x27;)]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LANGUAGES_BIDI</td>\n          <td class=\"code\"><pre>[&#x27;he&#x27;, &#x27;ar&#x27;, &#x27;ar-dz&#x27;, &#x27;ckb&#x27;, &#x27;fa&#x27;, &#x27;ug&#x27;, &#x27;ur&#x27;]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LANGUAGE_CODE</td>\n          <td class=\"code\"><pre>&#x27;zh-hans&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LANGUAGE_COOKIE_AGE</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LANGUAGE_COOKIE_DOMAIN</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LANGUAGE_COOKIE_HTTPONLY</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LANGUAGE_COOKIE_NAME</td>\n          <td class=\"code\"><pre>&#x27;django_language&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LANGUAGE_COOKIE_PATH</td>\n          <td class=\"code\"><pre>&#x27;/&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LANGUAGE_COOKIE_SAMESITE</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LANGUAGE_COOKIE_SECURE</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LOCALE_PATHS</td>\n          <td class=\"code\"><pre>[]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LOGGING</td>\n          <td class=\"code\"><pre>{&#x27;disable_existing_loggers&#x27;: False,\n &#x27;filters&#x27;: {&#x27;require_debug_true&#x27;: {&#x27;()&#x27;: &#x27;django.utils.log.RequireDebugTrue&#x27;}},\n &#x27;formatters&#x27;: {&#x27;simple&#x27;: {&#x27;format&#x27;: &#x27;%(levelname)s %(module)s %(lineno)d &#x27;\n                                     &#x27;%(message)s&#x27;},\n                &#x27;verbose&#x27;: {&#x27;format&#x27;: &#x27;%(levelname)s %(asctime)s %(module)s &#x27;\n                                      &#x27;%(lineno)d %(message)s&#x27;}},\n &#x27;handlers&#x27;: {&#x27;celery&#x27;: {&#x27;backupCount&#x27;: 10,\n                         &#x27;class&#x27;: &#x27;logging.handlers.RotatingFileHandler&#x27;,\n                         &#x27;encoding&#x27;: &#x27;utf-8&#x27;,\n                         &#x27;filename&#x27;: WindowsPath(&#x27;D:/data/xianYu/test_django/api_django/backend/logs/celery.log&#x27;),\n                         &#x27;formatter&#x27;: &#x27;verbose&#x27;,\n                         &#x27;level&#x27;: &#x27;INFO&#x27;,\n                         &#x27;maxBytes&#x27;: 31457280},\n              &#x27;console&#x27;: {&#x27;class&#x27;: &#x27;logging.StreamHandler&#x27;,\n                          &#x27;filters&#x27;: [&#x27;require_debug_true&#x27;],\n                          &#x27;formatter&#x27;: &#x27;simple&#x27;,\n                          &#x27;level&#x27;: &#x27;INFO&#x27;},\n              &#x27;file&#x27;: {&#x27;backupCount&#x27;: 10,\n                       &#x27;class&#x27;: &#x27;logging.handlers.RotatingFileHandler&#x27;,\n                       &#x27;encoding&#x27;: &#x27;utf-8&#x27;,\n                       &#x27;filename&#x27;: WindowsPath(&#x27;D:/data/xianYu/test_django/api_django/backend/logs/py.log&#x27;),\n                       &#x27;formatter&#x27;: &#x27;verbose&#x27;,\n                       &#x27;level&#x27;: &#x27;INFO&#x27;,\n                       &#x27;maxBytes&#x27;: 31457280}},\n &#x27;loggers&#x27;: {&#x27;celery&#x27;: {&#x27;handlers&#x27;: [&#x27;console&#x27;, &#x27;celery&#x27;],\n                        &#x27;level&#x27;: &#x27;INFO&#x27;,\n                        &#x27;propagate&#x27;: True},\n             &#x27;django&#x27;: {&#x27;handlers&#x27;: [&#x27;console&#x27;, &#x27;file&#x27;],\n                        &#x27;level&#x27;: &#x27;INFO&#x27;,\n                        &#x27;propagate&#x27;: True}},\n &#x27;version&#x27;: 1}</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LOGGING_CONFIG</td>\n          <td class=\"code\"><pre>&#x27;logging.config.dictConfig&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LOGIN_REDIRECT_URL</td>\n          <td class=\"code\"><pre>&#x27;/accounts/profile/&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LOGIN_URL</td>\n          <td class=\"code\"><pre>&#x27;/accounts/login/&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>LOGOUT_REDIRECT_URL</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>MANAGERS</td>\n          <td class=\"code\"><pre>[]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>MEDIA_ROOT</td>\n          <td class=\"code\"><pre>WindowsPath(&#x27;D:/data/xianYu/test_django/api_django/backend/files&#x27;)</pre></td>\n        </tr>\n      \n        <tr>\n          <td>MEDIA_URL</td>\n          <td class=\"code\"><pre>&#x27;/&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>MESSAGE_STORAGE</td>\n          <td class=\"code\"><pre>&#x27;django.contrib.messages.storage.fallback.FallbackStorage&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>MIDDLEWARE</td>\n          <td class=\"code\"><pre>[&#x27;django.middleware.security.SecurityMiddleware&#x27;,\n &#x27;django.contrib.sessions.middleware.SessionMiddleware&#x27;,\n &#x27;corsheaders.middleware.CorsMiddleware&#x27;,\n &#x27;django.middleware.common.CommonMiddleware&#x27;,\n &#x27;django.contrib.auth.middleware.AuthenticationMiddleware&#x27;,\n &#x27;django.contrib.messages.middleware.MessageMiddleware&#x27;]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>MIGRATION_MODULES</td>\n          <td class=\"code\"><pre>{}</pre></td>\n        </tr>\n      \n        <tr>\n          <td>MONTH_DAY_FORMAT</td>\n          <td class=\"code\"><pre>&#x27;F j&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>NUMBER_GROUPING</td>\n          <td class=\"code\"><pre>0</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PASSWORD_HASHERS</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PASSWORD_RESET_TIMEOUT</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>PREPEND_WWW</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>REST_FRAMEWORK</td>\n          <td class=\"code\"><pre>{&#x27;DEFAULT_AUTHENTICATION_CLASSES&#x27;: &#x27;********************&#x27;,\n &#x27;DEFAULT_FILTER_BACKENDS&#x27;: (&#x27;django_filters.rest_framework.DjangoFilterBackend&#x27;,),\n &#x27;DEFAULT_SCHEMA_CLASS&#x27;: &#x27;drf_spectacular.openapi.AutoSchema&#x27;}</pre></td>\n        </tr>\n      \n        <tr>\n          <td>ROOT_URLCONF</td>\n          <td class=\"code\"><pre>&#x27;backend.urls&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SECRET_KEY</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SECRET_KEY_FALLBACKS</td>\n          <td class=\"code\"><pre>&#x27;********************&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SECURE_CONTENT_TYPE_NOSNIFF</td>\n          <td class=\"code\"><pre>True</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SECURE_CROSS_ORIGIN_OPENER_POLICY</td>\n          <td class=\"code\"><pre>&#x27;same-origin&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SECURE_HSTS_INCLUDE_SUBDOMAINS</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SECURE_HSTS_PRELOAD</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SECURE_HSTS_SECONDS</td>\n          <td class=\"code\"><pre>0</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SECURE_PROXY_SSL_HEADER</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SECURE_REDIRECT_EXEMPT</td>\n          <td class=\"code\"><pre>[]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SECURE_REFERRER_POLICY</td>\n          <td class=\"code\"><pre>&#x27;same-origin&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SECURE_SSL_HOST</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SECURE_SSL_REDIRECT</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SERVER_EMAIL</td>\n          <td class=\"code\"><pre>&#x27;root@localhost&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSION_CACHE_ALIAS</td>\n          <td class=\"code\"><pre>&#x27;default&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSION_COOKIE_AGE</td>\n          <td class=\"code\"><pre>1209600</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSION_COOKIE_DOMAIN</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSION_COOKIE_HTTPONLY</td>\n          <td class=\"code\"><pre>True</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSION_COOKIE_NAME</td>\n          <td class=\"code\"><pre>&#x27;sessionid&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSION_COOKIE_PATH</td>\n          <td class=\"code\"><pre>&#x27;/&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSION_COOKIE_SAMESITE</td>\n          <td class=\"code\"><pre>&#x27;Lax&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSION_COOKIE_SECURE</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSION_ENGINE</td>\n          <td class=\"code\"><pre>&#x27;django.contrib.sessions.backends.db&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSION_EXPIRE_AT_BROWSER_CLOSE</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSION_FILE_PATH</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSION_SAVE_EVERY_REQUEST</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SESSION_SERIALIZER</td>\n          <td class=\"code\"><pre>&#x27;django.contrib.sessions.serializers.JSONSerializer&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SETTINGS_MODULE</td>\n          <td class=\"code\"><pre>&#x27;backend.settings&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SHORT_DATETIME_FORMAT</td>\n          <td class=\"code\"><pre>&#x27;m/d/Y P&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SHORT_DATE_FORMAT</td>\n          <td class=\"code\"><pre>&#x27;m/d/Y&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SIGNING_BACKEND</td>\n          <td class=\"code\"><pre>&#x27;django.core.signing.TimestampSigner&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SILENCED_SYSTEM_CHECKS</td>\n          <td class=\"code\"><pre>[]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SIMPLEUI_ANALYSIS</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SIMPLEUI_CONFIG</td>\n          <td class=\"code\"><pre>{&#x27;dynamic&#x27;: True,\n &#x27;menu_display&#x27;: [&#x27;用户管理&#x27;,\n                  &#x27;项目管理&#x27;,\n                  &#x27;接口管理&#x27;,\n                  &#x27;测试套件&#x27;,\n                  &#x27;定时任务&#x27;,\n                  &#x27;测试计划&#x27;,\n                  &#x27;Bug管理&#x27;,\n                  &#x27;任务监控&#x27;],\n &#x27;menus&#x27;: [{&#x27;app&#x27;: &#x27;user&#x27;,\n            &#x27;icon&#x27;: &#x27;fas fa-user-shield&#x27;,\n            &#x27;models&#x27;: [{&#x27;icon&#x27;: &#x27;fa fa-user&#x27;,\n                        &#x27;name&#x27;: &#x27;用户列表&#x27;,\n                        &#x27;url&#x27;: &#x27;user/user/&#x27;},\n                       {&#x27;icon&#x27;: &#x27;fas fa-users-cog&#x27;,\n                        &#x27;name&#x27;: &#x27;角色管理&#x27;,\n                        &#x27;url&#x27;: &#x27;user/role/&#x27;}],\n            &#x27;name&#x27;: &#x27;用户管理&#x27;},\n           {&#x27;app&#x27;: &#x27;project&#x27;,\n            &#x27;icon&#x27;: &#x27;fas fa-archive&#x27;,\n            &#x27;models&#x27;: [{&#x27;name&#x27;: &#x27;项目列表&#x27;, &#x27;url&#x27;: &#x27;project/project/&#x27;},\n                       {&#x27;icon&#x27;: &#x27;fa fa-upload&#x27;,\n                        &#x27;name&#x27;: &#x27;文件列表&#x27;,\n                        &#x27;url&#x27;: &#x27;project/file/&#x27;},\n                       {&#x27;icon&#x27;: &#x27;fa fa-database&#x27;,\n                        &#x27;name&#x27;: &#x27;测试环境&#x27;,\n                        &#x27;url&#x27;: &#x27;project/environment/&#x27;}],\n            &#x27;name&#x27;: &#x27;项目管理&#x27;},\n           {&#x27;app&#x27;: &#x27;interface&#x27;,\n            &#x27;icon&#x27;: &#x27;fas fa-plug&#x27;,\n            &#x27;models&#x27;: [{&#x27;name&#x27;: &#x27;接口列表&#x27;, &#x27;url&#x27;: &#x27;interface/interface/&#x27;},\n                       {&#x27;name&#x27;: &#x27;用例列表&#x27;, &#x27;url&#x27;: &#x27;interface/case/&#x27;}],\n            &#x27;name&#x27;: &#x27;接口管理&#x27;},\n           {&#x27;app&#x27;: &#x27;scene&#x27;,\n            &#x27;icon&#x27;: &#x27;fas fa-sitemap&#x27;,\n            &#x27;models&#x27;: [{&#x27;name&#x27;: &#x27;测试套件&#x27;, &#x27;url&#x27;: &#x27;scene/scene/&#x27;},\n                       {&#x27;icon&#x27;: &#x27;fas fa-signal&#x27;,\n                        &#x27;name&#x27;: &#x27;测试步骤&#x27;,\n                        &#x27;url&#x27;: &#x27;scene/step/&#x27;}],\n            &#x27;name&#x27;: &#x27;测试套件&#x27;},\n           {&#x27;app&#x27;: &#x27;cronjob&#x27;,\n            &#x27;icon&#x27;: &#x27;fa fa-th-list&#x27;,\n            &#x27;models&#x27;: [{&#x27;icon&#x27;: &#x27;fa fa-hourglass&#x27;,\n                        &#x27;name&#x27;: &#x27;任务列表&#x27;,\n                        &#x27;url&#x27;: &#x27;cronjob/cronjob/&#x27;}],\n            &#x27;name&#x27;: &#x27;定时任务&#x27;},\n           {&#x27;app&#x27;: &#x27;plan&#x27;,\n            &#x27;icon&#x27;: &#x27;fa fa-calendar&#x27;,\n            &#x27;models&#x27;: [{&#x27;name&#x27;: &#x27;测试计划&#x27;, &#x27;url&#x27;: &#x27;plan/plan/&#x27;},\n                       {&#x27;icon&#x27;: &#x27;fas fa-edit&#x27;,\n                        &#x27;name&#x27;: &#x27;运行记录&#x27;,\n                        &#x27;url&#x27;: &#x27;plan/record/&#x27;},\n                       {&#x27;icon&#x27;: &#x27;fas fa-calculator&#x27;,\n                        &#x27;name&#x27;: &#x27;测试报告&#x27;,\n                        &#x27;url&#x27;: &#x27;plan/report/&#x27;}],\n            &#x27;name&#x27;: &#x27;测试计划&#x27;},\n           {&#x27;app&#x27;: &#x27;bug&#x27;,\n            &#x27;icon&#x27;: &#x27;fa fa-bug&#x27;,\n            &#x27;models&#x27;: [{&#x27;name&#x27;: &#x27;Bug列表&#x27;, &#x27;url&#x27;: &#x27;bug/bug/&#x27;},\n                       {&#x27;icon&#x27;: &#x27;fa fa-book&#x27;,\n                        &#x27;name&#x27;: &#x27;Bug记录&#x27;,\n                        &#x27;url&#x27;: &#x27;bug/handle/&#x27;}],\n            &#x27;name&#x27;: &#x27;Bug管理&#x27;},\n           {&#x27;app&#x27;: &#x27;monitor&#x27;,\n            &#x27;icon&#x27;: &#x27;fa fa-binoculars&#x27;,\n            &#x27;models&#x27;: [{&#x27;icon&#x27;: &#x27;fa fa-users&#x27;,\n                        &#x27;name&#x27;: &#x27;小组监控&#x27;,\n                        &#x27;url&#x27;: &#x27;django_celery_results/groupresult/&#x27;},\n                       {&#x27;icon&#x27;: &#x27;fa fa-archive&#x27;,\n                        &#x27;name&#x27;: &#x27;任务监控&#x27;,\n                        &#x27;url&#x27;: &#x27;django_celery_results/taskresult/&#x27;}],\n            &#x27;name&#x27;: &#x27;任务监控&#x27;}],\n &#x27;system_keep&#x27;: False}</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SIMPLEUI_DEFAULT_THEME</td>\n          <td class=\"code\"><pre>&#x27;admin.lte.css&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SIMPLEUI_HOME_INFO</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SIMPLEUI_LOGO</td>\n          <td class=\"code\"><pre>&#x27;/static/media/favicon.ico&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SIMPLEUI_STATIC_OFFLINE</td>\n          <td class=\"code\"><pre>True</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SIMPLE_JWT</td>\n          <td class=\"code\"><pre>{&#x27;ACCESS_TOKEN_LIFETIME&#x27;: &#x27;********************&#x27;,\n &#x27;ALGORITHM&#x27;: &#x27;HS256&#x27;,\n &#x27;AUDIENCE&#x27;: None,\n &#x27;AUTH_HEADER_NAME&#x27;: &#x27;********************&#x27;,\n &#x27;AUTH_HEADER_TYPES&#x27;: &#x27;********************&#x27;,\n &#x27;BLACKLIST_AFTER_ROTATION&#x27;: True,\n &#x27;ISSUER&#x27;: None,\n &#x27;REFRESH_TOKEN_LIFETIME&#x27;: &#x27;********************&#x27;,\n &#x27;ROTATE_REFRESH_TOKENS&#x27;: &#x27;********************&#x27;,\n &#x27;SIGNING_KEY&#x27;: &#x27;********************&#x27;,\n &#x27;USER_ID_CLAIM&#x27;: &#x27;user_id&#x27;,\n &#x27;USER_ID_FIELD&#x27;: &#x27;id&#x27;,\n &#x27;VERIFYING_KEY&#x27;: &#x27;********************&#x27;}</pre></td>\n        </tr>\n      \n        <tr>\n          <td>SPECTACULAR_SETTINGS</td>\n          <td class=\"code\"><pre>{&#x27;DESCRIPTION&#x27;: &#x27;接口测试平台项目在线接口文档&#x27;,\n &#x27;REDOC_DIST&#x27;: &#x27;SIDECAR&#x27;,\n &#x27;SCHEMA_PATH_PREFIX&#x27;: None,\n &#x27;SERVE_INCLUDE_SCHEMA&#x27;: False,\n &#x27;SWAGGER_UI_DIST&#x27;: &#x27;SIDECAR&#x27;,\n &#x27;SWAGGER_UI_FAVICON_HREF&#x27;: &#x27;/static/media/favicon.ico&#x27;,\n &#x27;TITLE&#x27;: &#x27;API接口文档&#x27;,\n &#x27;VERSION&#x27;: &#x27;V0.1.0&#x27;}</pre></td>\n        </tr>\n      \n        <tr>\n          <td>STATICFILES_DIRS</td>\n          <td class=\"code\"><pre>[&#x27;D:\\\\data\\\\xianYu\\\\test_django\\\\api_django\\\\backend\\\\static&#x27;]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>STATICFILES_FINDERS</td>\n          <td class=\"code\"><pre>[&#x27;django.contrib.staticfiles.finders.FileSystemFinder&#x27;,\n &#x27;django.contrib.staticfiles.finders.AppDirectoriesFinder&#x27;]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>STATIC_ROOT</td>\n          <td class=\"code\"><pre>None</pre></td>\n        </tr>\n      \n        <tr>\n          <td>STATIC_URL</td>\n          <td class=\"code\"><pre>&#x27;/static/&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>STORAGES</td>\n          <td class=\"code\"><pre>{&#x27;default&#x27;: {&#x27;BACKEND&#x27;: &#x27;django.core.files.storage.FileSystemStorage&#x27;},\n &#x27;staticfiles&#x27;: {&#x27;BACKEND&#x27;: &#x27;django.contrib.staticfiles.storage.StaticFilesStorage&#x27;}}</pre></td>\n        </tr>\n      \n        <tr>\n          <td>TEMPLATES</td>\n          <td class=\"code\"><pre>[{&#x27;APP_DIRS&#x27;: True,\n  &#x27;BACKEND&#x27;: &#x27;django.template.backends.django.DjangoTemplates&#x27;,\n  &#x27;DIRS&#x27;: [],\n  &#x27;OPTIONS&#x27;: {&#x27;context_processors&#x27;: [&#x27;django.template.context_processors.debug&#x27;,\n                                     &#x27;django.template.context_processors.request&#x27;,\n                                     &#x27;django.contrib.auth.context_processors.auth&#x27;,\n                                     &#x27;django.contrib.messages.context_processors.messages&#x27;]}}]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>TEST_NON_SERIALIZED_APPS</td>\n          <td class=\"code\"><pre>[]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>TEST_RUNNER</td>\n          <td class=\"code\"><pre>&#x27;django.test.runner.DiscoverRunner&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>THOUSAND_SEPARATOR</td>\n          <td class=\"code\"><pre>&#x27;,&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>TIME_FORMAT</td>\n          <td class=\"code\"><pre>&#x27;P&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>TIME_INPUT_FORMATS</td>\n          <td class=\"code\"><pre>[&#x27;%H:%M:%S&#x27;, &#x27;%H:%M:%S.%f&#x27;, &#x27;%H:%M&#x27;]</pre></td>\n        </tr>\n      \n        <tr>\n          <td>TIME_ZONE</td>\n          <td class=\"code\"><pre>&#x27;Asia/Shanghai&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>USE_I18N</td>\n          <td class=\"code\"><pre>True</pre></td>\n        </tr>\n      \n        <tr>\n          <td>USE_L10N</td>\n          <td class=\"code\"><pre>True</pre></td>\n        </tr>\n      \n        <tr>\n          <td>USE_THOUSAND_SEPARATOR</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>USE_TZ</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>USE_X_FORWARDED_HOST</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>USE_X_FORWARDED_PORT</td>\n          <td class=\"code\"><pre>False</pre></td>\n        </tr>\n      \n        <tr>\n          <td>WSGI_APPLICATION</td>\n          <td class=\"code\"><pre>&#x27;backend.wsgi.application&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>X_FRAME_OPTIONS</td>\n          <td class=\"code\"><pre>&#x27;DENY&#x27;</pre></td>\n        </tr>\n      \n        <tr>\n          <td>YEAR_MONTH_FORMAT</td>\n          <td class=\"code\"><pre>&#x27;F Y&#x27;</pre></td>\n        </tr>\n      \n    </tbody>\n  </table>\n\n</div>\n</main>\n\n\n  <footer id=\"explanation\">\n    <p>\n      You’re seeing this error because you have <code>DEBUG = True</code> in your\n      Django settings file. Change that to <code>False</code>, and Django will\n      display a standard page generated by the handler for this status code.\n    </p>\n  </footer>\n\n</body>\n</html>\n"
+              }
+            },
+            "headers": {}
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/jenkins/allure-proxy/item-test-allure/8/": {
+      "get": {
+        "summary": "Allure 报告代理 - 主页（无文件路径）",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "example": "<!DOCTYPE html>\n<html dir=\"ltr\" lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Allure Report</title>\n    <link rel=\"icon\" href=\"favicon.ico\">\n    <link rel=\"stylesheet\" type=\"text/css\" href=\"styles.css\">\n    <link rel=\"stylesheet\" type=\"text/css\" href=\"plugin/screen-diff/styles.css\">\n\n        <style>\n            /* 隐藏 Allure 默认的 header/footer */\n            .app__header { display: none !important; }\n            \n            /* 自定义主题色 */\n            :root {\n                --primary-color: #1890ff;\n                --bg-color: #f5f5f5;\n            }\n            \n            /* 自定义样式 */\n            .pane__section { \n                background: var(--bg-color);\n            }\n        </style>\n        </head>\n<body>\n    <div id=\"alert\"></div>\n    <div id=\"content\">\n        <span class=\"spinner\">\n            <span class=\"spinner__circle\"></span>\n        </span>\n    </div>\n    <div id=\"popup\"></div>\n    <script src=\"app.js\"></script>\n    <script src=\"plugin/behaviors/index.js\"></script>\n    <script src=\"plugin/packages/index.js\"></script>\n    <script src=\"plugin/screen-diff/index.js\"></script>\n    <script async src=\"https://www.googletagmanager.com/gtag/js?id=G-FVWC4GKEYS\"></script>\n    <script>\n        window.dataLayer = window.dataLayer || [];\n        function gtag(){dataLayer.push(arguments);}\n        gtag('js', new Date());\n        gtag('config', 'G-FVWC4GKEYS', {\n          'allureVersion': '2.34.0',\n          'reportUuid': 'd2511bec-c838-412b-ae2c-d14f52160067',\n          'single_file': false\n        });\n    </script>\n</body>\n</html>\n"
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/jenkins/build/sync/": {
+      "post": {
+        "summary": "获取allure信息",
+        "deprecated": false,
+        "description": "",
+        "tags": [],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {}
+              },
+              "example": {
+                "job_name": "a-test-Pipeline",
+                "build_number": 4
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                },
+                "example": {
+                  "code": 200,
+                  "message": "Allure data synced successfully for build #4",
+                  "data": {
+                    "report_id": 1,
+                    "job_name": "a-test-Pipeline",
+                    "build_number": 4,
+                    "total": 1,
+                    "passed": 1,
+                    "failed": 0,
+                    "broken": 0,
+                    "skipped": 0,
+                    "pass_rate": 100,
+                    "duration": 0,
+                    "created_at": "2025-12-18 09:49:25"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 500
+          },
+          "message": {
+            "type": "string",
+            "example": "操作失败"
+          },
+          "data": {
+            "type": "object",
+            "properties": {},
+            "nullable": true
+          }
+        }
+      }
+    },
+    "responses": {},
+    "securitySchemes": {}
+  },
+  "servers": [],
+  "security": []
+}

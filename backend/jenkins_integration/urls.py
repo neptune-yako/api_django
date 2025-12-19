@@ -3,7 +3,7 @@ Jenkins URL 路由配置
 """
 from django.urls import path, re_path
 from . import views
-from . import allure_views
+from . import views
 
 urlpatterns = [
     # 测试 Jenkins 连接
@@ -16,7 +16,7 @@ urlpatterns = [
     path('api/jenkins/job/validate/', views.JenkinsJobValidateView.as_view(), name='jenkins_job_validate'),
     
     # 构建结果同步 (新)
-    path('api/jenkins/build/sync/', allure_views.SyncBuildResultView.as_view(), name='sync_build_result'),
+    path('api/jenkins/build/sync/', views.SyncBuildResultView.as_view(), name='sync_build_result'),
     
     # Job 批量同步 (新)
     path('api/jenkins/jobs/sync/', views.SyncJenkinsJobsView.as_view(), name='sync_jenkins_jobs'),
@@ -47,12 +47,12 @@ urlpatterns = [
     # ===== Allure 代理 =====
     # Allure 报告代理 - 主页（无文件路径）
     path('api/jenkins/allure-proxy/<str:job_name>/<int:build_number>/',
-         allure_views.AllureProxyView.as_view(), 
+         views.AllureProxyView.as_view(), 
          name='allure-proxy-index'),
     
     # Allure 报告代理 - 带文件路径（匹配任意路径，包括多级目录）
     re_path(r'^api/jenkins/allure-proxy/(?P<job_name>[^/]+)/(?P<build_number>\d+)/(?P<file_path>.+)$',
-            allure_views.AllureProxyView.as_view(), 
+            views.AllureProxyView.as_view(), 
             name='allure-proxy-file'),
 ]
 
