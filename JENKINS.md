@@ -95,7 +95,25 @@ PENDING → RUNNING → SUCCESS/FAILURE/ABORTED/UNSTABLE
 - [ ] 使用Cron表达式配置执行规则
 - [ ] 支持启用/禁用定时构建任务
 
+---
+实现方法：
+目标：让现有的定时任务系统，遇到绑定了 Jenkins Job 的 Plan 时，自动去跑 Jenkins。
 
+我将去修改 
+backend/plan/tasks.py
+ 文件：
+
+在 
+run_task
+ 也就是定时任务的入口函数里，加一个“分流”逻辑。
+判断逻辑：检查当前要跑的这个 plan 对象，是否关联了 Jenkins Job（plan.jenkins_jobs.first()）。
+分支 A (Jenkins)：如果有，不跑本地 runner，直接通过 
+jenkins_client
+ 触发构建，并（可选）记录一条“触发成功”的 record。
+分支 B (Local)：如果没有，继续跑原本的 run_test (本地测试引擎)。
+
+测试项目 project
+测试环境 environment
 
 ---
 

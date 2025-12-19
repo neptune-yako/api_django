@@ -55,3 +55,12 @@ urlpatterns = [
             allure_views.AllureProxyView.as_view(), 
             name='allure-proxy-file'),
 ]
+
+# 注册 ViewSets
+from rest_framework.routers import DefaultRouter
+
+router = DefaultRouter()
+router.register(r'api/jenkins/server', views.JenkinsServerViewSet)
+router.register(r'api/jenkins/pipeline', views.JenkinsJobViewSet)
+
+urlpatterns += router.urls
