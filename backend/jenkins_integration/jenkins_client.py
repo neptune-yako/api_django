@@ -13,22 +13,33 @@ USERNAME = "akko"
 TOKEN = "112f35231e8ffe20994a406815179d8a68"
 
 
-def get_jenkins_client():
+def get_jenkins_client(url=None, username=None, token=None):
     """
     获取 Jenkins 客户端实例
     
+    Args:
+        url: Jenkins URL (可选，默认使用配置)
+        username: 用户名 (可选，默认使用配置)
+        token: API Token (可选，默认使用配置)
+        
     Returns:
         jenkins.Jenkins: Jenkins 客户端对象
     """
     try:
+        # 使用传入的参数 或 全局配置
+        target_url = url or JENKINS_URL
+        target_username = username or USERNAME
+        target_token = token or TOKEN
+        
         client = jenkins.Jenkins(
-            url=JENKINS_URL,
-            username=USERNAME,
-            password=TOKEN,
+            url=target_url,
+            username=target_username,
+            password=target_token,
             # use_crumb=True  # 关键参数：启用 CSRF crumb 保护
         )
         
-        logger.info(f"Jenkins 客户端创建成功: {JENKINS_URL}")
+        # 仅在第一次或连接不同服务器时日志
+        # logger.info(f"Jenkins 客户端创建成功: {target_url}")
         return client
         
     except Exception as e:
@@ -36,15 +47,21 @@ def get_jenkins_client():
         raise
 
 
-def test_connection():
+def test_connection(url=None, username=None, token=None):
     """
     测试 Jenkins 连接
     
+    Args:
+        url: Jenkins URL
+        username: 用户名
+        token: API Token
+        
     Returns:
         tuple: (是否成功, 消息, 数据)
     """
     try:
-        client = get_jenkins_client()
+        # 即使参数为 None，get_jenkins_client 也会处理
+        client = get_jenkins_client(url, username, token)
         
         # 获取版本信息
         version = client.get_version()

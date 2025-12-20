@@ -45,6 +45,10 @@ class ResponseMessage:
     JENKINS_CONNECTED = "Jenkins 连接成功"
     JENKINS_CONNECTION_FAILED = "Jenkins 连接失败"
     
+    CREATED = "创建成功"
+    UPDATED = "更新成功"
+    DELETED = "删除成功"
+    
     JOB_CREATED = "Job 创建成功"
     JOB_UPDATED = "Job 更新成功"
     JOB_DELETED = "Job 删除成功"

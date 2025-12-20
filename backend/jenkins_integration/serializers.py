@@ -194,8 +194,9 @@ class JenkinsServerCreateSerializer(serializers.ModelSerializer):
             'is_active', 'description', 'created_by'
         ]
         extra_kwargs = {
-            'token': {'write_only': True}
+            'token': {'write_only': True, 'required': False}
         }
+        read_only_fields = ['created_by']
 
 
 class AllureReportCreateSerializer(serializers.ModelSerializer):

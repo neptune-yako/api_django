@@ -79,7 +79,7 @@
           <el-input 
             v-model="formData.token" 
             type="password" 
-            placeholder="请输入 API Token" 
+            :placeholder="dialogType === 'add' ? '请输入 API Token' : '留空则保持原有 Token 不变'"
             show-password
           />
         </el-form-item>
@@ -104,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { 
@@ -138,15 +138,25 @@ const formData = reactive({
 })
 
 // 表单验证规则
-const rules = {
-  name: [{ required: true, message: '请输入服务器名称', trigger: 'blur' }],
-  url: [
-    { required: true, message: '请输入 Jenkins URL', trigger: 'blur' },
-    { type: 'url', message: '请输入有效的 URL', trigger: 'blur' }
-  ],
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  token: [{ required: true, message: '请输入 API Token', trigger: 'blur' }]
-}
+const rules = computed(() => {
+  const commonRules = {
+    name: [{ required: true, message: '请输入服务器名称', trigger: 'blur' }],
+    url: [
+      { required: true, message: '请输入 Jenkins URL', trigger: 'blur' },
+      { type: 'url', message: '请输入有效的 URL', trigger: 'blur' }
+    ],
+    username: [{ required: true, message: '请输入用户名', trigger: 'blur' }]
+  }
+  
+  if (dialogType.value === 'add') {
+    return {
+      ...commonRules,
+      token: [{ required: true, message: '请输入 API Token', trigger: 'blur' }]
+    }
+  }
+  
+  return commonRules
+})
 
 // 获取数据
 const fetchData = async () => {
