@@ -43,3 +43,40 @@ export function testJenkinsConnection(data) {
     data
   })
 }
+
+// ==================== Job 管理 API ====================
+
+// 获取 Jenkins Job 列表
+export function getJenkinsJobs(params) {
+  return request({
+    url: '/api/jenkins/pipeline/',
+    method: 'get',
+    params
+  })
+}
+
+// 同步 Jenkins Job
+export function syncJenkinsJobs() {
+  return request({
+    url: '/api/jenkins/jobs/sync/',
+    method: 'post'
+  })
+}
+
+// 触发构建
+export function buildJenkinsJob(data) {
+  return request({
+    url: '/api/jenkins/job/build/',
+    method: 'post',
+    data
+  })
+}
+
+// 复制 Job
+export function copyJenkinsJob(data) {
+  return request({
+    url: '/api/jenkins/job/copy/',
+    method: 'post',
+    data
+  })
+}
