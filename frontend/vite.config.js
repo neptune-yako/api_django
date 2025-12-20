@@ -51,7 +51,7 @@ export default defineConfig(({ mode }) => {
                 '/api': {
                     target: 'http://127.0.0.1:8000', // 你的 Django 本地地址
                     changeOrigin: true,
-                    rewrite: (path) => path.replace(/^\/api/, '') // 如果后端不需要 /api 前缀，就去掉它
+                    // rewrite: (path) => path.replace(/^\/api/, '') // 如果后端不需要 /api 前缀，就去掉它
                 },
                 // 如果你有专门的 media 路径（比如图片），也可以加一个
                 '/media': {
