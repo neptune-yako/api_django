@@ -6,11 +6,30 @@
   </div>
   <!-- 菜单 -->
   <el-menu :default-active="activeMenu" :collapse="uStore.isCollapse" collapse-transition size="large">
-    <el-menu-item :index="item.path" v-for='item in MenuList' key="item.path" :disabled="proStore.isDisabled"
-                  @click="MenuClick(item)">
-      <img :src="item.iconImg" width="20" style="margin-right: 10px;" alt="">
-      <span>{{ item.name }}</span>
-    </el-menu-item>
+    <template v-for="item in MenuList" :key="item.path">
+      <!-- 如果有子菜单 -->
+      <el-sub-menu v-if="item.children && item.children.length > 0" :index="item.path">
+        <template #title>
+           <img :src="item.iconImg" width="20" style="margin-right: 10px;" alt="">
+           <span>{{ item.name }}</span>
+        </template>
+        <el-menu-item 
+            v-for="sub in item.children" 
+            :key="sub.path" 
+            :index="sub.path" 
+            :disabled="proStore.isDisabled"
+            @click="MenuClick(sub)"
+        >
+            <span>{{ sub.name }}</span>
+        </el-menu-item>
+      </el-sub-menu>
+      
+      <!-- 如果没有子菜单 -->
+      <el-menu-item v-else :index="item.path" :disabled="proStore.isDisabled" @click="MenuClick(item)">
+        <img :src="item.iconImg" width="20" style="margin-right: 10px;" alt="">
+        <span>{{ item.name }}</span>
+      </el-menu-item>
+    </template>
   </el-menu>
 </template>
 

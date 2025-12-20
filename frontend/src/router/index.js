@@ -1,5 +1,5 @@
-import {createRouter, createWebHashHistory} from 'vue-router'
-import {UserStore} from '@/stores/module/UserStore'
+import { createRouter, createWebHashHistory } from 'vue-router'
+import { UserStore } from '@/stores/module/UserStore'
 import NProgress from "nprogress"
 import 'nprogress/nprogress.css'
 
@@ -156,6 +156,41 @@ const routes = [
                     title: "角色管理",
                     iconImg: new URL('@/assets/icons/role.png', import.meta.url).href
                 }
+            },
+            // Jenkins CI/CD 管理
+            {
+                path: '/jenkins',
+                name: 'jenkins',
+                meta: {
+                    title: "CI/CD管理",
+                    iconImg: new URL('@/assets/icons/project.png', import.meta.url).href
+                },
+                children: [
+                    {
+                        path: 'server',
+                        name: 'jenkins-server',
+                        component: () => import('@/views/jenkins/server/ServerList.vue'),
+                        meta: {
+                            title: "服务器管理"
+                        }
+                    },
+                    {
+                        path: 'job',
+                        name: 'jenkins-job',
+                        component: () => import('@/views/jenkins/job/JobList.vue'),
+                        meta: {
+                            title: "任务管理"
+                        }
+                    },
+                    {
+                        path: 'report',
+                        name: 'jenkins-report',
+                        component: () => import('@/views/jenkins/report/ReportList.vue'),
+                        meta: {
+                            title: "构建报告"
+                        }
+                    }
+                ]
             }
         ]
     },
@@ -178,13 +213,6 @@ const routes = [
             title: '500',
             noTab: true
         }
-    },
-    //Jenkins页面
-    {
-    path: '/jenkins',
-    name: 'Jenkins',
-    component: () => import('@/views/jenkins/index.vue'),
-    meta: { title: 'Jenkins管理', icon: 'jenkins' }
     }
 ]
 
@@ -193,7 +221,7 @@ const router = createRouter({
 })
 
 // 右上角螺旋加载提示
-NProgress.configure({showSpinner: true, trickleSpeed: 200})
+NProgress.configure({ showSpinner: true, trickleSpeed: 200 })
 // 前置路由导航守卫
 router.beforeEach(async (to, from, next) => {
     // 启动进度条动画
@@ -210,7 +238,7 @@ router.beforeEach(async (to, from, next) => {
         // 停止进度条动画
         NProgress.done()
         // 将用户重定向到登录页面
-        return next({name: 'login'})
+        return next({ name: 'login' })
     }
     next()
 })

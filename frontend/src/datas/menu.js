@@ -55,6 +55,25 @@ export const MenuList = [
         iconImg: new URL("@/assets/icons/role.png", import.meta.url).href
     },
     {
+        name: 'CI/CD 管理',
+        path: '/jenkins',
+        iconImg: new URL("@/assets/icons/project.png", import.meta.url).href,
+        children: [
+            {
+                name: '服务器管理',
+                path: '/jenkins/server'
+            },
+            {
+                name: '任务管理',
+                path: '/jenkins/job'
+            },
+            {
+                name: '构建报告',
+                path: '/jenkins/report'
+            }
+        ]
+    },
+    {
         name: '用户管理',
         path: '/user',
         iconImg: new URL("@/assets/icons/user.png", import.meta.url).href

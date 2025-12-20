@@ -5,7 +5,7 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig(({ mode }) => {
     // 加载环境变量
     const env = loadEnv(mode, process.cwd(), "")
-    
+
     return {
         plugins: [
             vue(),
@@ -30,13 +30,13 @@ export default defineConfig(({ mode }) => {
         server: {
             // 是否自动打开浏览器 (加了个 || false 防止配置不存在报错)
             open: env.VITE_OPEN ? JSON.parse(env.VITE_OPEN) : false,
-            
+
             // 监听所有网卡，允许外部访问
             host: '0.0.0.0',
-            
+
             // 端口号 (加了个 || 8080 防止配置不存在报错)
             port: env.VITE_PORT || 8080,
-            
+
             // 是否开启热更新
             hmr: true,
 
