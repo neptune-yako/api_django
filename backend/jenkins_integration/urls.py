@@ -3,7 +3,7 @@ Jenkins URL 路由配置
 """
 from django.urls import path, re_path
 from . import views
-from . import views
+
 
 urlpatterns = [
     # 测试 Jenkins 连接
