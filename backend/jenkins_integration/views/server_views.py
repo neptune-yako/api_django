@@ -1,5 +1,6 @@
 from rest_framework import viewsets
 from rest_framework.views import APIView
+from rest_framework.decorators import action
 from ..utils import R, ResponseCode, ResponseMessage
 from ..models import JenkinsServer
 from ..serializers import JenkinsServerSerializer, JenkinsServerCreateSerializer
@@ -93,3 +94,57 @@ class JenkinsServerViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         super().destroy(request, *args, **kwargs)
         return R.success(message=ResponseMessage.DELETED)
+    
+    @action(detail=True, methods=['post'], url_path='test-connection')
+    def test_connection(self, request, pk=None):
+        """
+        测试指定服务器的连接 (通过 ID)
+        POST /api/jenkins/server/{id}/test-connection/
+        
+        从数据库获取服务器的完整凭据进行连接测试
+        解决前端无法获取 token (write_only) 的问题
+        """
+        try:
+            from ..jenkins_client import test_connection
+            
+            # 获取服务器实例
+            server = self.get_object()
+            
+            logger.info(f"开始测试 Jenkins 服务器连接: ID={server.id}, Name={server.name}, URL={server.url}")
+            
+            # 从数据库获取完整凭据进行测试
+            success, message, data = test_connection(server.url, server.username, server.token)
+            
+            if success:
+                logger.info(f"Jenkins 连接成功: {message}")
+                
+                # 更新服务器的连接状态
+                server.connection_status = 'connected'
+                server.save(update_fields=['connection_status', 'last_check_time'])
+                
+                return R.success(
+                    message=ResponseMessage.JENKINS_CONNECTED,
+                    data=data
+                )
+            else:
+                logger.error(f"Jenkins 连接失败: {message}")
+                
+                # 更新服务器的连接状态为失败
+                server.connection_status = 'failed'
+                server.save(update_fields=['connection_status', 'last_check_time'])
+                
+                return R.jenkins_error(
+                    message=message,
+                    code=ResponseCode.JENKINS_CONNECTION_FAILED
+                )
+                
+        except Exception as e:
+            error_msg = f"测试连接视图异常: {str(e)}"
+            error_trace = traceback.format_exc()
+            logger.error(f"{error_msg}\n{error_trace}")
+            
+            return R.internal_error(
+                message=error_msg,
+                data={'traceback': error_trace}
+            )
+

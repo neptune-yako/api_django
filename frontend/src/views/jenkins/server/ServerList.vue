@@ -112,7 +112,7 @@ import {
   addJenkinsServer, 
   updateJenkinsServer, 
   deleteJenkinsServer,
-  testJenkinsConnection 
+  testConnectionById  // 使用新的 API
 } from '@/api/jenkins'
 import StatusTag from '../common/StatusTag.vue'
 import { parseList } from '../utils/response-parser'
@@ -216,20 +216,22 @@ const handleDelete = (row) => {
 const handleTestConnection = async (row) => {
   row.testing = true
   try {
-    const res = await testJenkinsConnection({
-      url: row.url,
-      username: row.username,
-      token: row.token
-    })
+    // 使用新的 API: 通过服务器 ID 测试连接
+    // 后端会从数据库获取完整凭据 (包括 token)
+    const res = await testConnectionById(row.id)
     
-    if (res.status === 'success' || res.code === 200 || res.success) {
+    // 注意: axios 拦截器返回的是 response 对象
+    // 真正的数据在 response.data 中
+    if (res.data.code === 200) {
       ElMessage.success('连接成功!')
+      // 刷新列表，更新连接状态
       fetchData()
     } else {
-       ElMessage.error(res.message || '连接失败')
+      ElMessage.error(res.data.message || '连接失败')
     }
   } catch (error) {
     ElMessage.error('连接测试失败')
+    console.error('测试连接错误:', error)
   } finally {
     row.testing = false
   }
