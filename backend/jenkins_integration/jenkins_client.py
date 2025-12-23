@@ -976,7 +976,13 @@ def update_node_ip(node_name, new_ip, ssh_port=None):
         # 如果没有找到任何需要更新的元素
         if not updated:
             logger.warning(f"未找到需要更新的 IP 配置元素")
-            return False, '未找到需要更新的IP配置元素,请检查节点是否使用SSH或JNLP启动器', None
+            # 即使没有更新 Jenkins 配置（例如 Inbound 节点），也返回成功以便更新数据库
+            return True, 'Jenkins配置未变更(该节点类型仅更新本地记录)', {
+                'node_name': node_name,
+                'old_ip': None,
+                'new_ip': new_ip,
+                'updated': False
+            }
         
         # 6. 将更新后的配置转换回字符串
         updated_config = ET.tostring(root, encoding='unicode')

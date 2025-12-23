@@ -11,15 +11,19 @@
       </div>
       <!-- 环境列表 -->
       <el-menu :default-active="EnvInfo.id+''">
-        <el-menu-item @click='selectEnv(item)' :index="item.id.toString()" v-for='item in envList' :key="item.id" style="display: flex; justify-content: space-between; align-items: center;">
+        <el-menu-item @click='selectEnv(item)' :index="item.id.toString()" v-for='item in mixedEnvironments' :key="item.id" style="display: flex; justify-content: space-between; align-items: center;">
           <div style="display: flex; align-items: center;">
             <img src="@/assets/icons/environment.png" width="20" style="margin-right: 10px;" alt="">
             <span v-if='item.name.length < 15'>{{ item.name }}</span>
             <span v-else>{{ item.name.slice(0, 15) }}...</span>
           </div>
-          <!-- 显示Jenkins节点信息(状态点、节点名和IP) -->
+          <!-- 显示Jenkins节点信息 -->
           <div v-if="getMatchedNode(item)" style="display: flex; align-items: center; gap: 6px;">
             <span class="status-dot" :style="{ backgroundColor: getNodeColor(getMatchedNode(item)) }"></span>
+            
+            <!-- 如果是虚拟环境（未关联的节点），显示标记 -->
+            <el-tag v-if="item.is_virtual" size="small" type="info" effect="plain" style="transform: scale(0.8);">未关联</el-tag>
+            
             <span style="font-size: 12px; color: #909399;">
               {{ getMatchedNode(item).ip_address || '未知IP' }}
             </span>
@@ -99,9 +103,9 @@
     </div>
   </div>
   <div class="button" v-show='EnvInfo.id'>
-    <el-button @click='saveEnv' type="primary" plain icon='FolderChecked'>保存</el-button>
-    <el-button @click='copyEnv' type="primary" plain icon='DocumentCopy'>复制</el-button>
-    <el-button @click='clickDeleteEnv' type="danger" plain icon='Delete'>删除</el-button>
+    <el-button @click='saveEnv' type="primary" plain icon='FolderChecked'>{{ EnvInfo.is_virtual ? '保存并创建' : '保存' }}</el-button>
+    <el-button @click='copyEnv' type="primary" plain icon='DocumentCopy' v-if="!EnvInfo.is_virtual">复制</el-button>
+    <el-button @click='clickDeleteEnv' type="danger" plain icon='Delete' v-if="!EnvInfo.is_virtual">删除</el-button>
   </div>
   
   <!-- 统一创建对话框 -->
@@ -369,6 +373,36 @@ async function getEvnList() {
 
 // Jenkins节点列表（从store中获取）
 const jenkinsNodes = computed(() => pstore.jenkinsNodes)
+
+// 混合显示环境和节点
+const mixedEnvironments = computed(() => {
+  const envs = [...envList.value]
+  if (!jenkinsNodes.value) return envs
+
+  // 遍历所有 Jenkins 节点
+  jenkinsNodes.value.forEach(node => {
+    // 检查是否已经有对应的环境 (匹配名称)
+    const exists = envs.find(e => e.name === node.name || e.name === node.display_name)
+    
+    // 如果没有对应的环境，创建一个"虚拟环境"用于显示
+    if (!exists) {
+      envs.push({
+        id: 'node-' + node.name,  // 使用特殊前缀的ID
+        name: node.name,
+        host: node.ip_address || '',
+        is_virtual: true,         // 标记为虚拟环境
+        // 默认空字段
+        headers: '{}',
+        db: [],
+        global_variable: '{}',
+        debug_global_variable: '{}',
+        global_func: ''
+      })
+    }
+  })
+  
+  return envs
+})
 
 // 获取Jenkins节点列表（支持自动同步）
 async function getJenkinsNodes(autoSync = false) {
@@ -645,6 +679,55 @@ async function copyEnv() {
 
 // 保存测试环境
 async function saveEnv() {
+  // 如果是虚拟环境，通过保存操作创建新环境
+  if (EnvInfo.value.is_virtual) {
+    try {
+      const params = {
+        project: pstore.proList.id,
+        name: env_name.value,
+        username: uStore.userInfo.username,
+        host: env_host.value,
+        // 带上其他配置
+        global_func: env_global_func.value,
+        db: JSON.parse(env_db.value),
+        headers: env_headers.value,
+        global_variable: env_global_variable.value,
+        debug_global_variable: env_debug_global_variable.value,
+      }
+      
+      const response = await http.environmentApi.createEnvironment(params)
+      
+      if (response.status === 201) {
+        ElNotification({
+          title: '环境创建成功！',
+          message: '已将Jenkins节点关联为测试环境',
+          type: 'success',
+          duration: 1500
+        })
+        
+        // 刷新列表
+        await getEvnList()
+        
+        // 尝试选中新创建的环境
+        const newEnv = envList.value.find(e => e.name === params.name)
+        if (newEnv) {
+          selectEnv(newEnv)
+        }
+      } else {
+        ElNotification({
+          title: '环境创建失败！',
+          message: response.data.detail,
+          type: 'error',
+          duration: 1500
+        })
+      }
+    } catch (error) {
+      ElMessage.error('创建环境失败: ' + (error.message || '未知错误'))
+    }
+    return
+  }
+
+  // 常规保存逻辑
   const env_id = EnvInfo.value.id
   // 修改时传递的参数
   const params = {

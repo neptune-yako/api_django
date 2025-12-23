@@ -20,7 +20,7 @@ class JenkinsNodesListView(APIView):
         - 查询所有已同步的节点信息
         - 支持按服务器ID筛选
         - 支持按在线状态筛选
-        - 支持自动同步节点到项目环境 (需传入 project_id)
+
         - 返回序列化的节点详细信息
         ''',
         parameters=[
@@ -45,16 +45,7 @@ class JenkinsNodesListView(APIView):
                     OpenApiExample('查询离线节点', value=False)
                 ]
             ),
-            OpenApiParameter(
-                name='project_id',
-                type=OpenApiTypes.INT,
-                location=OpenApiParameter.QUERY,
-                description='项目 ID - 自动同步节点到该项目环境',
-                required=False,
-                examples=[
-                    OpenApiExample('示例', value=1)
-                ]
-            )
+
         ],
         responses={
             200: {
@@ -96,7 +87,7 @@ class JenkinsNodesListView(APIView):
         Query Parameters:
             server_id: 服务器 ID (可选,筛选指定服务器的节点)
             is_online: true/false (可选,筛选在线/离线节点)
-            project_id: 项目 ID (可选,自动同步节点到该项目环境)
+
 
         Returns:
             {
@@ -122,29 +113,7 @@ class JenkinsNodesListView(APIView):
             from ..models import JenkinsNode
             from ..serializers import JenkinsNodeSerializer
 
-            # 如果提供了 project_id，先同步节点到环境
-            project_id = request.query_params.get('project_id')
-            if project_id:
-                try:
-                    from ..services.jenkins_sync import JenkinsSyncService
-                    from project.models import Project
 
-                    # 验证项目存在
-                    Project.objects.get(id=project_id)
-
-                    # 获取当前登录用户名
-                    username = request.user.username if request.user.is_authenticated else 'jenkins_sync'
-
-                    # 同步节点到环境 (异步执行，不影响查询结果)
-                    sync_success, sync_message, sync_data = JenkinsSyncService.sync_nodes(project_id, username)
-                    if sync_success:
-                        logger.info(f"节点同步成功: {sync_message}")
-                    else:
-                        logger.warning(f"节点同步失败: {sync_message}")
-                except Project.DoesNotExist:
-                    logger.warning(f"项目 [{project_id}] 不存在，跳过同步")
-                except Exception as sync_error:
-                    logger.error(f"节点同步异常: {str(sync_error)}")
 
             # 基础查询
             queryset = JenkinsNode.objects.select_related('server').all()
