@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from ..utils import R, ResponseCode, ResponseMessage
 from ..models import JenkinsJob
 from ..serializers import JenkinsJobSerializer
+from backend.pagination import MyPaginator
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,7 @@ class JenkinsJobViewSet(mixins.RetrieveModelMixin,
     """
     queryset = JenkinsJob.objects.all().order_by('-last_sync_time')
     serializer_class = JenkinsJobSerializer
+    pagination_class = MyPaginator
     filterset_fields = ['server', 'project', 'plan', 'environment', 'is_active']
 
     def list(self, request, *args, **kwargs):

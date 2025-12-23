@@ -51,6 +51,19 @@
           </template>
         </el-table-column>
       </el-table>
+      
+      <!-- 分页组件 -->
+      <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          :total="pagination.total"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
     </el-card>
 
     <!-- 添加/编辑对话框 -->
@@ -115,7 +128,7 @@ import {
   testConnectionById  // 使用新的 API
 } from '@/api/jenkins'
 import StatusTag from '../common/StatusTag.vue'
-import { parseList } from '../utils/response-parser'
+import { parseList, parsePagination } from '../utils/response-parser'
 import { formatTime } from '../utils/formatters'
 
 // 状态变量
@@ -125,6 +138,13 @@ const dialogVisible = ref(false)
 const dialogType = ref('add') // 'add' or 'edit'
 const submitting = ref(false)
 const formRef = ref(null)
+
+// 分页状态
+const pagination = ref({
+  page: 1,
+  pageSize: 10,
+  total: 0
+})
 
 // 表单数据
 const formData = reactive({
@@ -162,14 +182,36 @@ const rules = computed(() => {
 const fetchData = async () => {
   loading.value = true
   try {
-    const res = await getJenkinsServers()
-    // 使用工具类解析数据，修复 "not iterable" 报错
+    const params = {
+      page: pagination.value.page,
+      size: pagination.value.pageSize  // 后端 MyPaginator 使用 'size' 参数
+    }
+    const res = await getJenkinsServers(params)
+    // 使用工具类解析数据
     tableData.value = parseList(res)
+    
+    // 解析分页信息
+    const paginationData = parsePagination(res)
+    if (paginationData) {
+      pagination.value.total = paginationData.total
+    }
   } catch (error) {
     console.error('Failed to fetch servers:', error)
   } finally {
     loading.value = false
   }
+}
+
+// 分页处理
+const handleSizeChange = (newSize) => {
+  pagination.value.pageSize = newSize
+  pagination.value.page = 1
+  fetchData()
+}
+
+const handlePageChange = (newPage) => {
+  pagination.value.page = newPage
+  fetchData()
 }
 
 // 对应操作处理

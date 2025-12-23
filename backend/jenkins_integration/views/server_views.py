@@ -6,6 +6,7 @@ from django.utils import timezone
 from ..utils import R, ResponseCode, ResponseMessage
 from ..models import JenkinsServer
 from ..serializers import JenkinsServerSerializer, JenkinsServerCreateSerializer
+from backend.pagination import MyPaginator
 import logging
 import traceback
 
@@ -58,6 +59,7 @@ class JenkinsServerViewSet(viewsets.ModelViewSet):
     Jenkins 服务器管理视图集 (CRUD)
     """
     queryset = JenkinsServer.objects.all().order_by('-create_time')
+    pagination_class = MyPaginator
     
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
