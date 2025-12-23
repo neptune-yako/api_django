@@ -12,7 +12,7 @@ urlpatterns = [
     # Job 管理 API
     path('api/jenkins/jobs/', views.JenkinsJobsView.as_view(), name='jenkins_jobs'),
     path('api/jenkins/job/manage/', views.JenkinsJobManageView.as_view(), name='jenkins_job_manage'),
-    path('api/jenkins/job/edit/', views.JenkinsJobEditView.as_view(), name='jenkins_job_edit'),  # 新增编辑
+    # path('api/jenkins/job/edit/', views.JenkinsJobEditView.as_view(), name='jenkins_job_edit'),  # 已合并到 manage
     path('api/jenkins/job/build/', views.JenkinsJobBuildView.as_view(), name='jenkins_job_build'),
     path('api/jenkins/job/validate/', views.JenkinsJobValidateView.as_view(), name='jenkins_job_validate'),
     

@@ -200,6 +200,9 @@ const planList = ref([])
 // 强制保存标记
 let forceEdit = false
 
+// 判断是否为新建模式
+const isCreateMode = computed(() => !props.jobData || !props.jobData.id)
+
 // 监听 jobData 变化，初始化表单
 watch(() => props.jobData, (newData) => {
   if (newData) {
@@ -222,7 +225,7 @@ watch(() => props.jobData, (newData) => {
 const loadOptions = async () => {
   try {
     // 加载项目列表
-    const projectRes = await http.projectApi.getProjectList({ page: 1, size: 100 })
+    const projectRes = await http.projectApi.getProject({ page: 1, size: 100 })
     projectList.value = projectRes.data.list || []
     
     // 加载环境列表
@@ -374,16 +377,21 @@ const handleSave = async () => {
   try {
     saving.value = true
     
-    const res = await editJenkinsJob({
-      id: form.value.id,
-      description: form.value.description,
-      config_xml: form.value.config_xml || undefined,
-      is_active: form.value.is_active,
-      project: form.value.project || undefined,
-      environment: form.value.environment || undefined,
-      plan: form.value.plan || undefined,
-      force: forceEdit
-    })
+    // 构建请求 payload
+    const payload = {
+        id: form.value.id,
+        name: form.value.name, // API 适配层会将其映射为 job_name（如果 API 内部没处理，这里其实传 name 也可以，createJenkinsJob 会取）
+        // server_id: form.value.server_id, // 后端目前自动取默认 server，后续支持多 server 时需加上
+        description: form.value.description,
+        config_xml: form.value.config_xml || undefined,
+        is_active: form.value.is_active,
+        project: form.value.project || undefined,
+        environment: form.value.environment || undefined,
+        plan: form.value.plan || undefined,
+        force: forceEdit
+    }
+    
+      const res = await (isCreateMode.value ? createJenkinsJob(payload) : editJenkinsJob(payload))
     
     // 4. 处理响应
     if (res.data.code === 200) {

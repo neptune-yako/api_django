@@ -12,16 +12,96 @@ import traceback
 logger = logging.getLogger(__name__)
 
 
-class JenkinsJobEditView(APIView):
+
+class JenkinsJobManageView(APIView):
     """
-    Jenkins Job 编辑视图
-    支持编辑字段：
-    - description（同步到 Jenkins）
-    - config_xml（同步到 Jenkins，含软检查）
-    - is_active（同步到 Jenkins）
-    - project/environment/plan（仅本地）
+    Jenkins Job 管理视图 (统一 CRUD)
+    支持：
+    - POST: 创建 Job (远程 + 本地)
+    - PUT: 编辑 Job (远程 + 本地)
     """
-    
+
+    def post(self, request):
+        """创建 Job"""
+        try:
+            # 1. 获取参数
+            job_name = request.data.get('name')
+            if not job_name:
+                return R.bad_request(message="参数错误: Job 名称不能为空")
+            
+            # 2. 检查本地唯一性
+            from ..models import JenkinsServer
+            # 暂时假设单服务器，获取默认 server
+            server = JenkinsServer.objects.first() 
+            if not server:
+                return R.error(message="未配置 Jenkins 服务器")
+                
+            if JenkinsJob.objects.filter(name=job_name, server=server).exists():
+                return R.error(message=f"Job '{job_name}' 已存在于本地数据库", code=ResponseCode.JENKINS_JOB_ALREADY_EXISTS)
+
+            # 3. 处理 config_xml
+            config_xml = request.data.get('config_xml')
+            force = request.data.get('force', False)
+            
+            if not config_xml:
+                # 生成默认配置
+                config_xml = self._get_default_config_xml(request.data.get('description', ''))
+            else:
+                # XML 校验
+                from ..jenkins_client import validate_xml
+                is_valid, errors = validate_xml(config_xml)
+                if not is_valid and not force:
+                    return R.error(
+                        message="XML 验证失败，请修复后重试或强制保存",
+                        code=ResponseCode.JENKINS_XML_INVALID,
+                        data={'errors': errors, 'need_force': True}
+                    )
+
+            # 4. 远程创建
+            from ..jenkins_client import create_job
+            logger.info(f"开始远程创建 Job: {job_name}")
+            success, message, _ = create_job(job_name, config_xml)
+            
+            if not success:
+                logger.error(f"远程创建失败: {message}")
+                if '已存在' in message or 'exists' in message.lower():
+                     return R.error(message=message, code=ResponseCode.JENKINS_JOB_ALREADY_EXISTS)
+                return R.jenkins_error(message=message)
+
+            # 5. 本地入库
+            try:
+                # 注入创建人
+                created_by = request.user.username if request.user.is_authenticated else 'system'
+                
+                job = JenkinsJob.objects.create(
+                    name=job_name,
+                    display_name=job_name,
+                    server=server,
+                    description=request.data.get('description', ''),
+                    config_xml=config_xml,
+                    is_active=request.data.get('is_active', True),
+                    project_id=request.data.get('project'),
+                    environment_id=request.data.get('environment'),
+                    plan_id=request.data.get('plan'),
+                    job_type='FreeStyle',
+                    is_buildable=True,
+                    url=f"{server.url.rstrip('/')}/job/{job_name}/",
+                    created_by=created_by
+                )
+                logger.info(f"本地 Job 创建成功: {job.name}")
+                
+                return R.success(message="创建成功", data=JenkinsJobSerializer(job).data)
+                
+            except Exception as e:
+                # 本地创建失败，记录日志 (理论上应回滚远程，但 Jenkins 不支持事务回滚，需人工处理或后续同步修正)
+                logger.error(f"本地数据库创建失败: {e}")
+                return R.success(message=f"远程创建成功，但本地记录失败: {e}") # 尽量不报 500
+
+        except Exception as e:
+            error_msg = f"创建 Job 异常: {str(e)}"
+            logger.error(f"{error_msg}\n{traceback.format_exc()}")
+            return R.internal_error(message=error_msg)
+
     def put(self, request):
         """编辑 Job"""
         try:
@@ -165,6 +245,25 @@ class JenkinsJobEditView(APIView):
                 data={'traceback': error_trace}
             )
     
+    def _get_default_config_xml(self, description=''):
+        """生成默认配置 XML"""
+        return f"""<?xml version='1.1' encoding='UTF-8'?>
+<project>
+  <description>{description}</description>
+  <keepDependencies>false</keepDependencies>
+  <properties/>
+  <scm class="hudson.scm.NullSCM"/>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders/>
+  <publishers/>
+  <buildWrappers/>
+</project>"""
+
     def _update_description_in_xml(self, config_xml, new_description):
         """在 XML 中更新 description"""
         import xml.etree.ElementTree as ET

@@ -199,8 +199,25 @@ export function updateJobRelation(id, data) {
 }
 
 /**
+ * 创建 Jenkins Job
+ * POST /api/jenkins/job/manage/
+ * 
+ * @param {Object} data 
+ * @param {string} data.name - Job 名称
+ * @param {string} [data.config_xml] - 配置 XML
+ * @returns {Promise<Object>}
+ */
+export function createJenkinsJob(data) {
+    return request({
+        url: '/api/jenkins/job/manage/',
+        method: 'post',
+        data
+    })
+}
+
+/**
  * 编辑 Jenkins Job
- * PUT /api/jenkins/job/edit/
+ * PUT /api/jenkins/job/manage/
  * 
  * 同步编辑 Jenkins 和本地数据库
  * 
@@ -235,7 +252,7 @@ export function updateJobRelation(id, data) {
  */
 export function editJenkinsJob(data) {
     return request({
-        url: '/api/jenkins/job/edit/',
+        url: '/api/jenkins/job/manage/',
         method: 'put',
         data
     })
