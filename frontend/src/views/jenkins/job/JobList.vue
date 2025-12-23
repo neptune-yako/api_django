@@ -10,11 +10,11 @@
               placeholder="搜索任务名称"
               style="width: 200px; margin-right: 10px"
               clearable
-              @clear="fetchData"
-              @keyup.enter="fetchData"
+              @clear="handleSearch"
+              @keyup.enter="handleSearch"
             >
               <template #append>
-                <el-button @click="fetchData"><el-icon><Search /></el-icon></el-button>
+                <el-button @click="handleSearch"><el-icon><Search /></el-icon></el-button>
               </template>
             </el-input>
             <el-button type="success" @click="handleSync" :loading="syncing">
@@ -23,6 +23,64 @@
           </div>
         </div>
       </template>
+
+      <!-- 筛选器 -->
+      <el-form :inline="true" class="filter-form">
+        <el-form-item label="服务器">
+          <el-select 
+            v-model="filters.server" 
+            placeholder="全部服务器" 
+            clearable
+            style="width: 200px"
+            @change="handleFilterChange"
+          >
+            <el-option
+              v-for="server in serverList"
+              :key="server.id"
+              :label="server.name"
+              :value="server.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="项目">
+          <el-select 
+            v-model="filters.project" 
+            placeholder="全部项目" 
+            clearable
+            style="width: 200px"
+            @change="handleFilterChange"
+          >
+            <el-option
+              v-for="project in projectList"
+              :key="project.id"
+              :label="project.name"
+              :value="project.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="环境">
+          <el-select 
+            v-model="filters.environment" 
+            placeholder="全部环境" 
+            clearable
+            style="width: 200px"
+            @change="handleFilterChange"
+          >
+            <el-option
+              v-for="env in environmentList"
+              :key="env.id"
+              :label="env.name"
+              :value="env.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
 
       <el-table 
         v-loading="loading" 
@@ -80,7 +138,17 @@
         </el-table-column>
       </el-table>
 
-      <!-- 分页 (如果有需要，暂时不做) -->
+      <!-- 分页 -->
+      <el-pagination
+        v-model:current-page="pagination.page"
+        v-model:page-size="pagination.pageSize"
+        :page-sizes="[10, 20, 50, 100]"
+        :total="pagination.total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="handleSizeChange"
+        @current-change="handlePageChange"
+        style="margin-top: 20px; justify-content: flex-end"
+      />
     </el-card>
   </div>
 </template>
@@ -94,8 +162,10 @@ import {
   syncJenkinsJobs, 
   buildJenkinsJob 
 } from '@/api/jenkins'
+import { getJenkinsServers } from '@/api/jenkins'
+import http from '@/api/index'
 import StatusTag from '../common/StatusTag.vue'
-import { parseList } from '../utils/response-parser'
+import { parseList, parsePagination } from '../utils/response-parser'
 import { formatTime } from '../utils/formatters'
 
 // 状态
@@ -104,21 +174,146 @@ const syncing = ref(false)
 const tableData = ref([])
 const searchKeyword = ref('')
 
+// 分页
+const pagination = ref({
+  page: 1,
+  pageSize: 20,
+  total: 0
+})
+
+// 筛选器
+const filters = ref({
+  server: null,
+  project: null,
+  environment: null
+})
+
+// 筛选器选项
+const serverList = ref([])
+const projectList = ref([])
+const environmentList = ref([])
+
+// 获取服务器列表
+const fetchServerList = async () => {
+  try {
+    const res = await getJenkinsServers()
+    serverList.value = parseList(res)
+  } catch (error) {
+    console.error('获取服务器列表失败:', error)
+  }
+}
+
+// 获取项目列表
+const fetchProjectList = async () => {
+  try {
+    const res = await http.projectApi.getProjectList({ page: 1, size: 100 })
+    projectList.value = res.data.list || []
+  } catch (error) {
+    console.error('获取项目列表失败:', error)
+  }
+}
+
+// 获取环境列表
+const fetchEnvironmentList = async () => {
+  try {
+    // 从 Pinia store 获取当前项目
+    const { ProjectStore } = await import('@/stores/module/ProStore')
+    const pstore = ProjectStore()
+    
+    if (pstore.proList && pstore.proList.id) {
+      const res = await http.environmentApi.getEnvironment(pstore.proList.id)
+      environmentList.value = res.data || []
+    } else {
+      console.warn('未选择项目，无法加载环境列表')
+      environmentList.value = []
+    }
+  } catch (error) {
+    console.error('获取环境列表失败:', error)
+    environmentList.value = []
+  }
+}
+
 // 获取数据
 const fetchData = async () => {
   loading.value = true
   try {
-    const params = {}
+    const params = {
+      page: pagination.value.page,
+      page_size: pagination.value.pageSize
+    }
+    
+    // 搜索关键词
     if (searchKeyword.value) {
       params.name = searchKeyword.value
     }
+    
+    // 筛选条件
+    if (filters.value.server) {
+      params.server = filters.value.server
+    }
+    if (filters.value.project) {
+      params.project = filters.value.project
+    }
+    if (filters.value.environment) {
+      params.environment = filters.value.environment
+    }
+    
+    console.log('🔍 请求参数:', params)
     const res = await getJenkinsJobs(params)
+    console.log('📦 响应数据:', res)
+    
     tableData.value = parseList(res)
+    console.log('✅ 解析后的表格数据:', tableData.value.length, '条')
+    
+    // 解析分页信息
+    const paginationData = parsePagination(res)
+    if (paginationData) {
+      pagination.value.total = paginationData.total
+      console.log('📊 分页信息 - 总数:', paginationData.total)
+    }
   } catch (error) {
-    console.error(error)
+    console.error('❌ 获取数据失败:', error)
   } finally {
     loading.value = false
   }
+}
+
+// 搜索处理
+const handleSearch = () => {
+  pagination.value.page = 1  // 重置到第一页
+  fetchData()
+}
+
+// 筛选器变化
+const handleFilterChange = () => {
+  console.log('筛选器变化:', filters.value)
+  pagination.value.page = 1  // 重置到第一页
+  fetchData()
+}
+
+// 重置筛选
+const handleReset = () => {
+  searchKeyword.value = ''
+  filters.value = {
+    server: null,
+    project: null,
+    environment: null
+  }
+  pagination.value.page = 1
+  fetchData()
+}
+
+// 分页大小变化
+const handleSizeChange = (newSize) => {
+  pagination.value.pageSize = newSize
+  pagination.value.page = 1  // 重置到第一页
+  fetchData()
+}
+
+// 页码变化
+const handlePageChange = (newPage) => {
+  pagination.value.page = newPage
+  fetchData()
 }
 
 // 同步任务
@@ -184,7 +379,13 @@ const handleBuild = (row) => {
   })
 }
 
-onMounted(() => {
+onMounted(async () => {
+  // 并行加载筛选器选项和数据
+  await Promise.all([
+    fetchServerList(),
+    fetchProjectList(),
+    fetchEnvironmentList()
+  ])
   fetchData()
 })
 </script>
@@ -209,5 +410,11 @@ onMounted(() => {
 .job-name {
   font-weight: 500;
   color: #409EFF;
+}
+.filter-form {
+  margin-bottom: 16px;
+  padding: 16px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
 }
 </style>

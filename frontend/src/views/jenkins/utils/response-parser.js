@@ -39,6 +39,46 @@ export function parseList(response) {
 }
 
 /**
+ * 解析分页信息
+ * @param {Object} response - API 响应对象
+ * @returns {Object|null} 分页信息 { total, page, pageSize } 或 null
+ */
+export function parsePagination(response) {
+    if (!response) {
+        return null
+    }
+
+    // 1. 解包 Axios 响应对象
+    let data = response.data || response
+
+    // 2. 解包后端 R 统一响应结构
+    if (data && data.code !== undefined && data.data !== undefined) {
+        data = data.data
+    }
+
+    // 3. DRF 分页格式
+    if (data && data.count !== undefined) {
+        return {
+            total: data.count,
+            page: data.current || 1,
+            pageSize: data.page_size || 20
+        }
+    }
+
+    // 4. 自定义分页格式
+    if (data && data.pagination) {
+        return {
+            total: data.pagination.total,
+            page: data.pagination.page,
+            pageSize: data.pagination.page_size
+        }
+    }
+
+    // 5. 无分页信息
+    return null
+}
+
+/**
  * 解析总数
  * @param {Object} response 
  * @returns {Number}

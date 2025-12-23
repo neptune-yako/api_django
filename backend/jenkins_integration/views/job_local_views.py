@@ -21,17 +21,27 @@ class JenkinsJobViewSet(mixins.RetrieveModelMixin,
     filterset_fields = ['server', 'project', 'plan', 'environment', 'is_active']
 
     def list(self, request, *args, **kwargs):
-        # 支持按 Job Name 模糊搜索
+        """
+        列表查询，支持：
+        - 按 name 模糊搜索
+        - 按 server/project/plan/environment/is_active 精确筛选（filterset_fields）
+        """
+        # 获取基础 queryset
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        # 额外支持按 Job Name 模糊搜索
         name = request.query_params.get('name')
         if name:
-            self.queryset = self.queryset.filter(name__icontains=name)
+            queryset = queryset.filter(name__icontains=name)
             
-        page = self.paginate_queryset(self.queryset)
+        # 分页
+        page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
             
-        serializer = self.get_serializer(self.queryset, many=True)
+        # 无分页
+        serializer = self.get_serializer(queryset, many=True)
         return R.success(data=serializer.data)
 
     def update(self, request, *args, **kwargs):
