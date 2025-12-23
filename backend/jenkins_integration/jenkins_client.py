@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 JENKINS_URL = "http://mg.morry.online"
 USERNAME = "akko"
 TOKEN = "112f35231e8ffe20994a406815179d8a68"
+# TOKEN = "1118c6009a9ea266a6f4edabf6c159c8f9"
 
 
 def get_jenkins_client(url=None, username=None, token=None):
@@ -642,5 +643,376 @@ def get_allure_report_url(job_name, build_number):
         
     except Exception as e:
         error_msg = f'获取 Allure 报告失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+# ==================== Node 节点操作 ====================
+
+def extract_ip_from_node_config(config_xml):
+    """
+    从节点配置 XML 中提取 IP 地址或主机名
+    
+    适用于 SSH launcher 节点配置，从 <launcher><host> 标签提取主机信息
+    
+    Args:
+        config_xml: 节点配置 XML 字符串
+        
+    Returns:
+        str: IP地址或主机名，提取失败返回空字符串
+    """
+    try:
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(config_xml)
+        
+        # 提取 launcher 中的 host 字段
+        # SSH launcher: <launcher class="hudson.plugins.sshslaves.SSHLauncher">
+        #   <host>192.168.1.100</host>
+        # </launcher>
+        launcher = root.find('.//launcher')
+        if launcher is not None:
+            host = launcher.find('host')
+            if host is not None and host.text:
+                return host.text.strip()
+        
+        return ''
+    except Exception as e:
+        logger.debug(f"从XML提取IP失败: {str(e)}")
+        return ''
+
+
+def get_all_nodes():
+    """
+    获取所有 Jenkins 节点信息
+    
+    Returns:
+        tuple: (是否成功, 消息, nodes列表)
+        nodes格式: [
+            {
+                'name': str,                # 节点名称
+                'displayName': str,         # 显示名称
+                'description': str,         # 描述
+                'numExecutors': int,        # 执行器数量
+                'labels': str,              # 标签(逗号分隔)
+                'offline': bool,            # 是否离线
+                'temporarilyOffline': bool, # 是否临时离线
+                'idle': bool,               # 是否空闲
+                'offlineCauseReason': str   # 离线原因
+            }
+        ]
+    """
+    try:
+        client = get_jenkins_client()
+        
+        # 获取所有节点信息
+        nodes_info = client.get_nodes()
+        
+        # 解析节点数据
+        nodes_list = []
+        for node in nodes_info:
+            node_name = node.get('name', '')
+            
+            try:
+                # 获取节点详细信息 (使用 depth=1 获取更详细的launcher配置)
+                node_info = client.get_node_info(node_name, depth=1)
+                
+                # 提取IP地址 - 采用多层次方法，按优先级依次尝试
+                ip_address = ''
+                extraction_method = 'none'  # 记录使用的提取方法，便于调试
+                
+                # ===== 方法1: 从节点配置XML中提取 (优先级最高，最可靠) =====
+                try:
+                    config_xml = client.get_node_config(node_name)
+                    ip_address = extract_ip_from_node_config(config_xml)
+                    if ip_address:
+                        extraction_method = 'xml_config'
+                        logger.debug(f"节点 [{node_name}] 通过XML配置获取IP: {ip_address}")
+                except Exception as e:
+                    logger.debug(f"节点 [{node_name}] 获取XML配置失败: {str(e)}")
+                
+                # ===== 方法2: 从 launcher 配置中提取 =====
+                if not ip_address and 'launcher' in node_info:
+                    launcher = node_info.get('launcher', {})
+                    if isinstance(launcher, dict):
+                        # 尝试多个可能的字段名
+                        ip_address = launcher.get('host', '') or launcher.get('hostName', '') or launcher.get('hostname', '')
+                        if ip_address:
+                            extraction_method = 'launcher_config'
+                            logger.debug(f"节点 [{node_name}] 通过launcher配置获取IP: {ip_address}")
+                
+                # ===== 方法3: 从 monitorData 中获取 (保留现有逻辑作为后备) =====
+                if not ip_address:
+                    monitor_data = node_info.get('monitorData', {})
+                    
+                    # 尝试从 ArchitectureMonitor 获取
+                    if 'hudson.node_monitors.ArchitectureMonitor' in monitor_data:
+                        arch_monitor = monitor_data['hudson.node_monitors.ArchitectureMonitor']
+                        if isinstance(arch_monitor, dict):
+                            ip_address = arch_monitor.get('ip', '')
+                            if ip_address:
+                                extraction_method = 'monitor_arch'
+                    
+                    # 尝试从 ResponseTimeMonitor 获取
+                    if not ip_address and 'hudson.node_monitors.ResponseTimeMonitor' in monitor_data:
+                        response_monitor = monitor_data['hudson.node_monitors.ResponseTimeMonitor']
+                        if isinstance(response_monitor, dict):
+                            ip_address = response_monitor.get('ip', '')
+                            if ip_address:
+                                extraction_method = 'monitor_response'
+                    
+                    if ip_address:
+                        logger.debug(f"节点 [{node_name}] 通过monitorData获取IP: {ip_address}")
+                
+                # ===== 方法4: 从 displayName 或 description 中提取IP (最后的后备方案) =====
+                if not ip_address:
+                    import re
+                    # 简单的IP正则匹配
+                    ip_pattern = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
+                    display_name = node_info.get('displayName', '')
+                    description = node_info.get('description', '')
+                    
+                    ip_match = re.search(ip_pattern, display_name)
+                    if ip_match:
+                        ip_address = ip_match.group(0)
+                        extraction_method = 'regex_displayname'
+                    else:
+                        ip_match = re.search(ip_pattern, description)
+                        if ip_match:
+                            ip_address = ip_match.group(0)
+                            extraction_method = 'regex_description'
+                    
+                    if ip_address:
+                        logger.debug(f"节点 [{node_name}] 通过正则匹配获取IP: {ip_address}")
+                
+                # 记录最终结果
+                if ip_address:
+                    logger.info(f"节点 [{node_name}] IP提取成功: {ip_address} (方法: {extraction_method})")
+                else:
+                    logger.warning(f"节点 [{node_name}] 未能提取到IP地址")
+                
+                # 提取关键信息
+                node_data = {
+                    'name': node_name,
+                    'displayName': node_info.get('displayName', node_name),
+                    'description': node_info.get('description', ''),
+                    'numExecutors': node_info.get('numExecutors', 1),
+                    'labels': ','.join([label.get('name', '') for label in node_info.get('assignedLabels', [])]),
+                    'ip_address': ip_address,  # 添加IP地址
+                    'offline': node_info.get('offline', False),
+                    'temporarilyOffline': node_info.get('temporarilyOffline', False),
+                    'idle': node_info.get('idle', True),
+                    'offlineCauseReason': node_info.get('offlineCauseReason', '') if node_info.get('offline') else ''
+                }
+                
+                nodes_list.append(node_data)
+                logger.info(f"成功获取节点信息: {node_name}")
+                
+            except Exception as e:
+                logger.warning(f"获取节点 [{node_name}] 详细信息失败: {str(e)}")
+                # 即使获取详情失败,也添加基本信息
+                nodes_list.append({
+                    'name': node_name,
+                    'displayName': node_name,
+                    'description': '',
+                    'numExecutors': 1,
+                    'labels': '',
+                    'offline': True,
+                    'temporarilyOffline': False,
+                    'idle': False,
+                    'offlineCauseReason': f'获取详情失败: {str(e)}'
+                })
+        
+        logger.info(f"成功获取 {len(nodes_list)} 个节点信息")
+        return True, f'成功获取 {len(nodes_list)} 个节点', nodes_list
+        
+    except Exception as e:
+        error_msg = f'获取节点信息失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+# ==================== Node IP 管理操作 ====================
+
+def get_node_config(node_name):
+    """
+    获取节点的 XML 配置
+    
+    Args:
+        node_name: 节点名称
+        
+    Returns:
+        tuple: (是否成功, 消息, 配置XML字符串)
+    """
+    try:
+        client = get_jenkins_client()
+        config_xml = client.get_node_config(node_name)
+        
+        logger.info(f"成功获取节点 [{node_name}] 配置")
+        return True, '获取节点配置成功', {'config_xml': config_xml}
+        
+    except Exception as e:
+        error_msg = f'获取节点配置失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def get_node_current_ip(node_name):
+    """
+    获取节点当前的 IP 地址
+    
+    Args:
+        node_name: 节点名称
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+        数据格式: {
+            'node_name': str,
+            'current_ip': str,
+            'ssh_port': str or None
+        }
+    """
+    try:
+        import xml.etree.ElementTree as ET
+        
+        client = get_jenkins_client()
+        config_xml = client.get_node_config(node_name)
+        root = ET.fromstring(config_xml)
+        
+        # 查找 SSH 主机 IP
+        host_elem = root.find(".//host")
+        current_ip = host_elem.text if host_elem is not None and host_elem.text else None
+        
+        # 查找 SSH 端口
+        port_elem = root.find(".//port")
+        ssh_port = port_elem.text if port_elem is not None and port_elem.text else None
+        
+        if current_ip:
+            logger.info(f"节点 [{node_name}] 当前 IP: {current_ip}, 端口: {ssh_port}")
+            return True, '成功获取节点IP配置', {
+                'node_name': node_name,
+                'current_ip': current_ip,
+                'ssh_port': ssh_port
+            }
+        else:
+            logger.warning(f"未找到节点 [{node_name}] 的 IP 配置")
+            return False, '未找到节点的IP配置', None
+            
+    except Exception as e:
+        error_msg = f'获取节点IP失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def update_node_ip(node_name, new_ip, ssh_port=None):
+    """
+    更新节点的主机 IP 地址
+    
+    参考 update_node_ip.py demo 实现
+    
+    Args:
+        node_name: 节点名称
+        new_ip: 新的 IP 地址
+        ssh_port: SSH 端口(可选,默认保持不变)
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+        数据格式: {
+            'node_name': str,
+            'old_ip': str,
+            'new_ip': str,
+            'updated': bool
+        }
+    """
+    try:
+        import xml.etree.ElementTree as ET
+        
+        client = get_jenkins_client()
+        
+        logger.info(f"开始更新节点 [{node_name}] 的 IP 地址")
+        
+        # 1. 获取当前节点配置
+        config_xml = client.get_node_config(node_name)
+        
+        # 2. 解析 XML
+        root = ET.fromstring(config_xml)
+        
+        # 标记是否有更新
+        updated = False
+        old_ip = None
+        
+        # 3. 更新 SSH 主机 IP(对于 SSH 连接节点)
+        host_elements = root.findall(".//host")
+        for host_elem in host_elements:
+            old_ip = host_elem.text
+            if old_ip != new_ip:
+                host_elem.text = new_ip
+                updated = True
+                logger.info(f"✓ 更新 SSH 主机 IP: {old_ip} → {new_ip}")
+            else:
+                logger.info(f"IP 地址已经是 {new_ip},无需更新")
+        
+        # 4. 更新端口(如果指定)
+        if ssh_port:
+            port_elements = root.findall(".//port")
+            for port_elem in port_elements:
+                old_port = port_elem.text
+                if old_port != str(ssh_port):
+                    port_elem.text = str(ssh_port)
+                    updated = True
+                    logger.info(f"✓ 更新 SSH 端口: {old_port} → {ssh_port}")
+        
+        # 5. 更新 JNLP tunnel(对于 JNLP 连接节点)
+        tunnel_elements = root.findall(".//tunnel")
+        for tunnel_elem in tunnel_elements:
+            if tunnel_elem.text and ":" in tunnel_elem.text:
+                parts = tunnel_elem.text.split(":")
+                if len(parts) == 2:
+                    old_tunnel = tunnel_elem.text
+                    port = parts[1]
+                    tunnel_elem.text = f"{new_ip}:{port}"
+                    updated = True
+                    logger.info(f"✓ 更新 JNLP tunnel: {old_tunnel} → {new_ip}:{port}")
+        
+        # 如果没有找到任何需要更新的元素
+        if not updated:
+            logger.warning(f"未找到需要更新的 IP 配置元素")
+            return False, '未找到需要更新的IP配置元素,请检查节点是否使用SSH或JNLP启动器', None
+        
+        # 6. 将更新后的配置转换回字符串
+        updated_config = ET.tostring(root, encoding='unicode')
+        
+        # 7. 应用更新
+        client.reconfig_node(node_name, updated_config)
+        logger.info(f"✓ 成功应用节点配置更新")
+        
+        # 8. 验证更新 - 重新获取配置确认
+        verify_config = client.get_node_config(node_name)
+        verify_root = ET.fromstring(verify_config)
+        verify_host = verify_root.find(".//host")
+        
+        if verify_host is not None and verify_host.text == new_ip:
+            logger.info(f"✓ 验证通过: 节点 IP 已更新为 {new_ip}")
+        else:
+            logger.warning(f"⚠ 验证失败: 节点 IP 可能未正确更新")
+        
+        logger.info(f"✓ 节点 [{node_name}] IP 地址更新完成!")
+        
+        return True, '成功更新节点IP地址', {
+            'node_name': node_name,
+            'old_ip': old_ip,
+            'new_ip': new_ip,
+            'updated': True
+        }
+        
+    except ET.ParseError as e:
+        error_msg = f'解析 XML 配置失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+    except jenkins.JenkinsException as e:
+        error_msg = f'Jenkins API 错误: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+    except Exception as e:
+        error_msg = f'更新节点IP失败: {str(e)}'
         logger.error(error_msg)
         return False, error_msg, None

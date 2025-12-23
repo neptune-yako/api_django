@@ -1,4 +1,4 @@
-import {createApp} from 'vue'
+import { createApp } from 'vue'
 import App from './App.vue'
 import router from '@/router/index'
 // element-plus相关的库导入
@@ -13,7 +13,7 @@ import '@/style/global.css'
 import pinia from '@/stores/index'
 // 引入进度条
 import 'nprogress/nprogress.css'
-import {useDark} from '@vueuse/core'
+import { useDark } from '@vueuse/core'
 
 // 解决element-plus表格组件引发的异常
 const debounce = (fn, delay) => {
@@ -28,7 +28,7 @@ const debounce = (fn, delay) => {
   }
 }
 const _ResizeObserver = window.ResizeObserver
-window.ResizeObserver = class ResizeObserver extends _ResizeObserver{
+window.ResizeObserver = class ResizeObserver extends _ResizeObserver {
   constructor(callback) {
     callback = debounce(callback, 16)
     super(callback)
@@ -43,12 +43,21 @@ app.use(router)
 app.use(pinia)
 
 // 注册element-plus
-app.use(ElementPlus, {zIndex: 3000, locale: zhCn})
+app.use(ElementPlus, { zIndex: 3000, locale: zhCn })
 // 注册element-plus的图标
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
 // 添加暗黑模式全局状态
 app.provide('dark-mode', useDark())
+
+// 清可能存在的残留 Service Worker (解决 sw.js 报错)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister()
+    }
+  })
+}
 
 app.mount('#app')

@@ -60,6 +60,12 @@ class JenkinsNode(models.Model):
     description = models.TextField(blank=True, null=True, verbose_name="节点描述")
     num_executors = models.IntegerField(default=1, verbose_name="执行器数量")
     labels = models.CharField(max_length=200, blank=True, verbose_name="节点标签")
+    ip_address = models.CharField(max_length=50, blank=True, null=True, verbose_name="IP地址")
+    is_ip_manual = models.BooleanField(
+        default=False, 
+        verbose_name="IP是否手动设置",
+        help_text="标记IP地址是否为手动设置，True时同步不会覆盖"
+    )
     is_online = models.BooleanField(default=True, verbose_name="是否在线")
     is_idle = models.BooleanField(default=True, verbose_name="是否空闲")
     offline_cause = models.TextField(blank=True, null=True, verbose_name="离线原因")

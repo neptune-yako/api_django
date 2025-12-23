@@ -54,6 +54,15 @@ urlpatterns = [
     re_path(r'^api/jenkins/allure-proxy/(?P<job_name>[^/]+)/(?P<build_number>\d+)/(?P<file_path>.+)$',
             views.AllureProxyView.as_view(), 
             name='allure-proxy-file'),
+    
+    # ===== Node 节点管理 =====
+    
+    # 查询数据库中的节点列表
+    path('api/jenkins/nodes/', views.JenkinsNodesListView.as_view(), name='jenkins-nodes-list'),
+    
+    # 节点配置管理
+    path('api/jenkins/nodes/<str:node_name>/config/', views.JenkinsNodeGetConfigView.as_view(), name='jenkins-node-config'),
+    path('api/jenkins/nodes/<str:node_name>/ip/', views.JenkinsNodeUpdateIPView.as_view(), name='jenkins-node-update-ip'),
 ]
 
 # 注册 ViewSets

@@ -1,0 +1,61 @@
+================================================================================
+详细调试 Jenkins 节点信息
+================================================================================
+
+
+================================================================================
+节点: Built-In Node
+================================================================================
+
+基本信息:
+  displayName: Built-In Node
+  description: the Jenkins controller's built-in node
+  offline: False
+
+Launcher信息:
+  ✗ 无launcher配置
+
+MonitorData信息:
+  可用监控器: ['hudson.node_monitors.SwapSpaceMonitor', 'hudson.node_monitors.TemporarySpaceMonitor', 'hudson.node_monitors.DiskSpaceMonitor', 'hudson.node_monitors.ArchitectureMonitor', 'hudson.node_monitors.ResponseTimeMonitor', 'hudson.node_monitors.ClockMonitor']
+
+  ArchitectureMonitor:
+    类型: <class 'str'>
+    值: Linux (amd64)
+
+================================================================================
+节点: a
+================================================================================
+
+基本信息:
+  displayName: a
+  description: 
+  offline: False
+
+Launcher信息:
+  ✗ 无launcher配置
+
+MonitorData信息:
+  可用监控器: ['hudson.node_monitors.SwapSpaceMonitor', 'hudson.node_monitors.TemporarySpaceMonitor', 'hudson.node_monitors.DiskSpaceMonitor', 'hudson.node_monitors.ArchitectureMonitor', 'hudson.node_monitors.ResponseTimeMonitor', 'hudson.node_monitors.ClockMonitor']
+
+  ArchitectureMonitor:
+    类型: <class 'str'>
+    值: Linux (amd64)
+
+================================================================================
+节点: test
+================================================================================
+
+基本信息:
+  displayName: test
+  description: 
+  offline: False
+
+Launcher信息:
+  ✗ 无launcher配置
+
+MonitorData信息:
+  可用监控器: ['hudson.node_monitors.SwapSpaceMonitor', 'hudson.node_monitors.TemporarySpaceMonitor', 'hudson.node_monitors.DiskSpaceMonitor', 'hudson.node_monitors.ArchitectureMonitor', 'hudson.node_monitors.ResponseTimeMonitor', 'hudson.node_monitors.ClockMonitor']
+
+  ArchitectureMonitor:
+    类型: <class 'str'>
+    值: Linux (amd64)

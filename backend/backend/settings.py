@@ -147,11 +147,11 @@ if DEBUG:
             'ENGINE': 'django.db.backends.mysql',
             'NAME': 'django',
             'USER': 'root',
-            'PASSWORD': '123456py',
+            'PASSWORD': '123456',
             # 👇 修改点 1：必须用本机回环地址
             'HOST': '127.0.0.1', 
             # 👇 修改点 2：必须用 Docker 映射出来的外部端口 (你的配置是 9527)
-            'PORT': '9527',      
+            'PORT': '3306',      
         }
     }   
 else:

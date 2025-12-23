@@ -11,6 +11,7 @@ import cronjobApi from '@/api/module/cronjobApi.js'
 import bugApi from '@/api/module/bugApi.js'
 import fileApi from "@/api/module/fileApi.js"
 import reportApi from "@/api/module/reportApi.js"
+import jenkinsApi from '@/api/jenkins.js'
 
 export default {
     // 用户相关的接口
@@ -38,5 +39,7 @@ export default {
     // bug相关的接口
     bugApi: bugApi,
     // 文件上传接口
-    fileApi: fileApi
+    fileApi: fileApi,
+    // Jenkins相关接口
+    jenkinsApi: jenkinsApi
 }

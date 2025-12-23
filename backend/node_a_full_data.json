@@ -1,0 +1,67 @@
+{
+  "_class": "hudson.slaves.SlaveComputer",
+  "actions": [],
+  "assignedLabels": [
+    {
+      "name": "a"
+    }
+  ],
+  "description": "",
+  "displayName": "a",
+  "executors": [
+    {}
+  ],
+  "icon": "symbol-computer",
+  "iconClassName": "symbol-computer",
+  "idle": true,
+  "jnlpAgent": false,
+  "launchSupported": true,
+  "loadStatistics": {
+    "_class": "hudson.model.Label$1"
+  },
+  "manualLaunchAllowed": true,
+  "monitorData": {
+    "hudson.node_monitors.SwapSpaceMonitor": {
+      "_class": "hudson.node_monitors.SwapSpaceMonitor$MemoryUsage2",
+      "availablePhysicalMemory": 103071744,
+      "availableSwapSpace": 234139648,
+      "totalPhysicalMemory": 1687162880,
+      "totalSwapSpace": 1074786304
+    },
+    "hudson.node_monitors.TemporarySpaceMonitor": {
+      "_class": "hudson.node_monitors.DiskSpaceMonitorDescriptor$DiskSpace",
+      "timestamp": 1766128050409,
+      "path": "/tmp",
+      "size": 27096174592,
+      "threshold": 1073741824,
+      "totalSize": 41882943488,
+      "warningThreshold": 2147483648
+    },
+    "hudson.node_monitors.DiskSpaceMonitor": {
+      "_class": "hudson.node_monitors.DiskSpaceMonitorDescriptor$DiskSpace",
+      "timestamp": 1766128050210,
+      "path": "/home/a",
+      "size": 27096174592,
+      "threshold": 1073741824,
+      "totalSize": 41882943488,
+      "warningThreshold": 2147483648
+    },
+    "hudson.node_monitors.ArchitectureMonitor": "Linux (amd64)",
+    "hudson.node_monitors.ResponseTimeMonitor": {
+      "_class": "hudson.node_monitors.ResponseTimeMonitor$Data",
+      "timestamp": 1766128050410,
+      "average": 4044
+    },
+    "hudson.node_monitors.ClockMonitor": {
+      "_class": "hudson.util.ClockDifference",
+      "diff": 4
+    }
+  },
+  "numExecutors": 1,
+  "offline": false,
+  "offlineCause": null,
+  "offlineCauseReason": "",
+  "oneOffExecutors": [],
+  "temporarilyOffline": false,
+  "absoluteRemotePath": "/home/a"
+}

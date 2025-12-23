@@ -172,6 +172,12 @@ class Environment(models.Model):
     create_time = models.DateTimeField(auto_now_add=True, verbose_name="创建日期")
     update_time = models.DateTimeField(auto_now=True, verbose_name="更新日期")
     username = models.CharField(max_length=20, verbose_name="环境创建人")
+    source = models.CharField(
+        max_length=10,
+        choices=[('manual', '手动创建'), ('jenkins', 'Jenkins同步')],
+        default='manual',
+        verbose_name="环境来源"
+    )
     objects = models.Manager()
 
     def __str__(self):
