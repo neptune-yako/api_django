@@ -114,8 +114,17 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="scope">
+            <el-button 
+              size="small" 
+              type="primary" 
+              link
+              @click="handleEdit(scope.row)"
+            >
+              <el-icon><Edit /></el-icon> 编辑
+            </el-button>
+            <el-divider direction="vertical" />
             <el-button 
               size="small" 
               type="primary" 
@@ -150,13 +159,20 @@
         style="margin-top: 20px; justify-content: flex-end"
       />
     </el-card>
+    
+    <!-- 编辑对话框 -->
+    <JobEdit
+      v-model:visible="editDialogVisible"
+      :job-data="currentJob"
+      @success="handleEditSuccess"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, VideoPlay } from '@element-plus/icons-vue'
+import { Search, Refresh, VideoPlay, Edit } from '@element-plus/icons-vue'
 import { 
   getJenkinsJobs, 
   syncJenkinsJobs, 
@@ -165,6 +181,7 @@ import {
 import { getJenkinsServers } from '@/api/jenkins'
 import http from '@/api/index'
 import StatusTag from '../common/StatusTag.vue'
+import JobEdit from './JobEdit.vue'
 import { parseList, parsePagination } from '../utils/response-parser'
 import { formatTime } from '../utils/formatters'
 
@@ -173,6 +190,10 @@ const loading = ref(false)
 const syncing = ref(false)
 const tableData = ref([])
 const searchKeyword = ref('')
+
+// 编辑对话框
+const editDialogVisible = ref(false)
+const currentJob = ref(null)
 
 // 分页
 const pagination = ref({
@@ -337,6 +358,17 @@ const handleSync = async () => {
 // 手动刷新 (列表刷新)
 const handleManualSync = () => {
   fetchData()
+}
+
+// 编辑 Job
+const handleEdit = (row) => {
+  currentJob.value = row
+  editDialogVisible.value = true
+}
+
+// 编辑成功回调
+const handleEditSuccess = () => {
+  fetchData()  // 刷新列表
 }
 
 // 触发构建

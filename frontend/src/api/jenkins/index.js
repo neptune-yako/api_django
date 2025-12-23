@@ -17,12 +17,13 @@ export { testJenkinsConnection } from './server'    // 测试连接 (手动输�
 export { testConnectionById } from './server'       // 测试连接 (通过 ID)
 
 // ==================== Job 管理 ====================
-export { getJenkinsJobs } from './job'              // 获取 Job 列表 (本地)
-export { syncJenkinsJobs } from './job'             // 同步 Job (从 Jenkins)
+export { getJenkinsJobs } from './job'              // 获取 Job 列表 (本地 DB)
+export { syncJenkinsJobs } from './job'             // 同步 Jobs (异步任务)
 export { buildJenkinsJob } from './job'             // 触发构建
 export { copyJenkinsJob } from './job'              // 复制 Job
 export { toggleJenkinsJob } from './job'            // 启用/禁用 Job
-export { updateJobRelation } from './job'           // 更新 Job 关联信息
+export { updateJobRelation } from './job'           // 更新本地关联信息
+export { editJenkinsJob } from './job'              // 编辑 Job (同步 Jenkins + DB)
 
 // ==================== 构建管理 ====================
 export { getBuildLatestStatus } from './build'      // 查询最新构建状态 (轮询用)
