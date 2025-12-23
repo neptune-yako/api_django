@@ -36,3 +36,25 @@ export { getAllureProxyFileUrl } from './allure'    // 获取 Allure 代理 URL 
 // ==================== 模板管理 ====================
 export { getJenkinsTemplates } from './template'    // 获取模板列表
 export { getJenkinsTemplateDetail } from './template' // 获取模板详情
+
+// ==================== 节点管理 ====================
+export { getNodesList } from './node'               // 获取节点列表
+export { getNodeConfig } from './node'              // 获取节点配置
+export { updateNodeIP } from './node'               // 更新节点IP
+
+// ==================== 默认导出（兼容旧的导入方式） ====================
+import * as server from './server'
+import * as job from './job'
+import * as build from './build'
+import * as allure from './allure'
+import * as template from './template'
+import * as node from './node'
+
+export default {
+    ...server,
+    ...job,
+    ...build,
+    ...allure,
+    ...template,
+    ...node
+}

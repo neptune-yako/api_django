@@ -224,18 +224,23 @@ const handleTestConnection = async (row) => {
     // 真正的数据在 response.data 中
     if (res.data.code === 200) {
       ElMessage.success('连接成功!')
-      // 刷新列表，更新连接状态
-      fetchData()
     } else {
       ElMessage.error(res.data.message || '连接失败')
     }
+    
+    // 🔥 修复：无论成功或失败，都刷新列表以更新连接状态
+    fetchData()
+    
   } catch (error) {
     ElMessage.error('连接测试失败')
     console.error('测试连接错误:', error)
+    // 🔥 异常时也刷新
+    fetchData()
   } finally {
     row.testing = false
   }
 }
+
 
 // 提交表单
 const submitForm = async () => {
