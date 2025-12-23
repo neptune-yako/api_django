@@ -29,15 +29,19 @@ class JenkinsJobManageView(APIView):
             if not job_name:
                 return R.bad_request(message="参数错误: Job 名称不能为空")
             
-            # 2. 检查本地唯一性
+            # 2. 获取并验证服务器
             from ..models import JenkinsServer
-            # 暂时假设单服务器，获取默认 server
-            server = JenkinsServer.objects.first() 
-            if not server:
-                return R.error(message="未配置 Jenkins 服务器")
+            server_id = request.data.get('server')
+            if not server_id:
+                return R.bad_request(message="参数错误: 请选择 Jenkins 服务器")
+            
+            try:
+                server = JenkinsServer.objects.get(id=server_id, is_active=True)
+            except JenkinsServer.DoesNotExist:
+                return R.error(message="Jenkins 服务器不存在或已禁用")
                 
             if JenkinsJob.objects.filter(name=job_name, server=server).exists():
-                return R.error(message=f"Job '{job_name}' 已存在于本地数据库", code=ResponseCode.JENKINS_JOB_ALREADY_EXISTS)
+                return R.error(message=f"Job '{job_name}' 已存在于服务器 {server.name}", code=ResponseCode.JENKINS_JOB_ALREADY_EXISTS)
 
             # 3. 处理 config_xml 和 job_type
             config_xml = request.data.get('config_xml')

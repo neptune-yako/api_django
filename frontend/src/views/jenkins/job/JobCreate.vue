@@ -15,6 +15,24 @@
       <!-- 基本信息 -->
       <el-divider content-position="left">基本信息</el-divider>
       
+      <el-form-item label="Jenkins 服务器" prop="server">
+        <el-select 
+          v-model="form.server" 
+          placeholder="选择 Jenkins 服务器" 
+          style="width: 100%"
+        >
+          <el-option
+            v-for="server in serverList"
+            :key="server.id"
+            :label="server.name"
+            :value="server.id"
+          >
+            <span>{{ server.name }}</span>
+            <span style="float: right; color: #8492a6; font-size: 13px">{{ server.url }}</span>
+          </el-option>
+        </el-select>
+      </el-form-item>
+      
       <el-form-item label="Job 名称" prop="name">
         <el-input 
           v-model="form.name" 
@@ -75,7 +93,13 @@
       <el-divider content-position="left">业务关联（可选）</el-divider>
       
       <el-form-item label="关联项目">
-        <el-select v-model="form.project" clearable placeholder="选择项目" style="width: 100%">
+        <el-select 
+          v-model="form.project" 
+          clearable 
+          placeholder="选择项目" 
+          style="width: 100%"
+          @change="handleProjectChange"
+        >
           <el-option
             v-for="project in projectList"
             :key="project.id"
@@ -83,12 +107,21 @@
             :value="project.id"
           />
         </el-select>
+        <span style="font-size: 12px; color: #909399; display: block; margin-top: 5px">
+          💡 选择项目后，环境和计划选项将自动过滤
+        </span>
       </el-form-item>
       
       <el-form-item label="测试环境">
-        <el-select v-model="form.environment" clearable placeholder="选择环境" style="width: 100%">
+        <el-select 
+          v-model="form.environment" 
+          clearable 
+          placeholder="请先选择项目" 
+          style="width: 100%"
+          :disabled="!form.project"
+        >
           <el-option
-            v-for="env in environmentList"
+            v-for="env in filteredEnvironmentList"
             :key="env.id"
             :label="env.name"
             :value="env.id"
@@ -97,9 +130,15 @@
       </el-form-item>
       
       <el-form-item label="测试计划">
-        <el-select v-model="form.plan" clearable placeholder="选择计划" style="width: 100%">
+        <el-select 
+          v-model="form.plan" 
+          clearable 
+          placeholder="请先选择项目" 
+          style="width: 100%"
+          :disabled="!form.project"
+        >
           <el-option
-            v-for="plan in planList"
+            v-for="plan in filteredPlanList"
             :key="plan.id"
             :label="plan.name"
             :value="plan.id"
@@ -172,6 +211,7 @@ ace.config.set('basePath', 'https://cdn.jsdelivr.net/npm/ace-builds@' + ace.vers
 
 import { createJenkinsJob } from '@/api/jenkins'
 import { getJenkinsTemplateDetail } from '@/api/jenkins/template'
+import { useJobFormOptions } from '@/composables/useJobFormOptions'
 import http from '@/api/index'
 
 // Props & Emits
@@ -194,6 +234,7 @@ const aceEditorRef = ref(null)
 
 // 表单数据
 const form = ref({
+  server: null,
   name: '',
   job_type: 'Pipeline',  // 默认 Pipeline
   description: '',
@@ -206,6 +247,9 @@ const form = ref({
 
 // 表单验证
 const rules = {
+  server: [
+    { required: true, message: '请选择 Jenkins 服务器', trigger: 'change' }
+  ],
   name: [
     { required: true, message: 'Job 名称不能为空', trigger: 'blur' },
     { pattern: /^[a-zA-Z0-9_-]+$/, message: 'Job 名称只能包含字母、数字、下划线和横线', trigger: 'blur' },
@@ -225,39 +269,34 @@ const xmlValidation = ref({
   error: ''
 })
 
-// 筛选选项
-const projectList = ref([])
-const environmentList = ref([])
-const planList = ref([])
+// 使用 composable 获取表单选项
+const {
+  serverList,
+  projectList,
+  environmentList,
+  planList,
+  loadAllOptions,
+  loadEnvironments,
+  loadPlans
+} = useJobFormOptions()
+
+// 根据选中的项目过滤环境列表
+const filteredEnvironmentList = computed(() => {
+  if (!form.value.project) return []
+  return environmentList.value.filter(env => env.project === form.value.project)
+})
+
+// 根据选中的项目过滤计划列表
+const filteredPlanList = computed(() => {
+  if (!form.value.project) return []
+  return planList.value.filter(plan => plan.project === form.value.project)
+})
 
 // 强制保存标记
 let forceCreate = false
 
 // 模板内容缓存
 const templateCache = ref({})
-
-// 加载筛选选项
-const loadOptions = async () => {
-  try {
-    // 加载项目列表
-    const projectRes = await http.projectApi.getProject({ page: 1, size: 100 })
-    projectList.value = projectRes.data.list || []
-    
-    // 加载环境列表
-    try {
-      const { ProjectStore } = await import('@/stores/module/ProStore')
-      const pstore = ProjectStore()
-      if (pstore.proList && pstore.proList.id) {
-        const envRes = await http.environmentApi.getEnvironment(pstore.proList.id)
-        environmentList.value = envRes.data || []
-      }
-    } catch (e) {
-      console.warn('加载环境列表失败:', e)
-    }
-  } catch (error) {
-    console.error('加载选项失败:', error)
-  }
-}
 
 // 加载模板 XML
 const loadTemplateXml = async (jobType) => {
@@ -315,11 +354,27 @@ const handleTypeChange = async (newType) => {
   }
 }
 
+// 处理项目变化
+const handleProjectChange = async (projectId) => {
+  // 清空环境和计划选择
+  form.value.environment = null
+  form.value.plan = null
+  
+  if (projectId) {
+    // 重新加载该项目下的环境和计划
+    await Promise.all([
+      loadEnvironments(projectId),
+      loadPlans(projectId)
+    ])
+  }
+}
+
 // 打开对话框时初始化
 watch(dialogVisible, async (visible) => {
   if (visible) {
     // 重置表单
     form.value = {
+      server: null,
       name: '',
       job_type: 'Pipeline',
       description: '',
@@ -334,7 +389,7 @@ watch(dialogVisible, async (visible) => {
     xmlValidation.value = { valid: true, error: '' }
     
     // 加载选项
-    loadOptions()
+    loadAllOptions()
     
     // 加载默认模板
     const template = await loadTemplateXml('Pipeline')
@@ -419,6 +474,7 @@ const handleCreate = async () => {
     creating.value = true
     
     const res = await createJenkinsJob({
+      server: form.value.server,
       name: form.value.name,
       job_type: form.value.job_type,
       description: form.value.description,

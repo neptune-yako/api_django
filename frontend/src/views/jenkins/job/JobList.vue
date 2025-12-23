@@ -65,23 +65,6 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="环境">
-          <el-select 
-            v-model="filters.environment" 
-            placeholder="全部环境" 
-            clearable
-            style="width: 200px"
-            @change="handleFilterChange"
-          >
-            <el-option
-              v-for="env in environmentList"
-              :key="env.id"
-              :label="env.name"
-              :value="env.id"
-            />
-          </el-select>
-        </el-form-item>
-
         <el-form-item>
           <el-button @click="handleReset">重置</el-button>
         </el-form-item>
@@ -200,7 +183,7 @@ import {
   getTaskStatus,
   buildJenkinsJob 
 } from '@/api/jenkins'
-import { getJenkinsServers } from '@/api/jenkins'
+import { useJobFormOptions } from '@/composables/useJobFormOptions'
 import http from '@/api/index'
 import StatusTag from '../common/StatusTag.vue'
 import JobEdit from './JobEdit.vue'
@@ -240,54 +223,16 @@ const pagination = ref({
 // 筛选器
 const filters = ref({
   server: null,
-  project: null,
-  environment: null
+  project: null
 })
 
-// 筛选器选项
-const serverList = ref([])
-const projectList = ref([])
-const environmentList = ref([])
-
-// 获取服务器列表
-const fetchServerList = async () => {
-  try {
-    const res = await getJenkinsServers()
-    serverList.value = parseList(res)
-  } catch (error) {
-    console.error('获取服务器列表失败:', error)
-  }
-}
-
-// 获取项目列表
-const fetchProjectList = async () => {
-  try {
-    const res = await http.projectApi.getProjectList({ page: 1, size: 100 })
-    projectList.value = res.data.list || []
-  } catch (error) {
-    console.error('获取项目列表失败:', error)
-  }
-}
-
-// 获取环境列表
-const fetchEnvironmentList = async () => {
-  try {
-    // 从 Pinia store 获取当前项目
-    const { ProjectStore } = await import('@/stores/module/ProStore')
-    const pstore = ProjectStore()
-    
-    if (pstore.proList && pstore.proList.id) {
-      const res = await http.environmentApi.getEnvironment(pstore.proList.id)
-      environmentList.value = res.data || []
-    } else {
-      console.warn('未选择项目，无法加载环境列表')
-      environmentList.value = []
-    }
-  } catch (error) {
-    console.error('获取环境列表失败:', error)
-    environmentList.value = []
-  }
-}
+// 使用 composable 获取筛选选项
+const {
+  serverList,
+  projectList,
+  loadServers,
+  loadProjects
+} = useJobFormOptions()
 
 // 获取数据
 const fetchData = async () => {
@@ -295,7 +240,7 @@ const fetchData = async () => {
   try {
     const params = {
       page: pagination.value.page,
-      page_size: pagination.value.pageSize
+      size: pagination.value.pageSize  // 后端 MyPaginator 使用 'size' 参数
     }
     
     // 搜索关键词
@@ -309,9 +254,6 @@ const fetchData = async () => {
     }
     if (filters.value.project) {
       params.project = filters.value.project
-    }
-    if (filters.value.environment) {
-      params.environment = filters.value.environment
     }
     
     console.log('🔍 请求参数:', params)
@@ -352,8 +294,7 @@ const handleReset = () => {
   searchKeyword.value = ''
   filters.value = {
     server: null,
-    project: null,
-    environment: null
+    project: null
   }
   pagination.value.page = 1
   fetchData()
@@ -491,9 +432,8 @@ const handleBuild = (row) => {
 onMounted(async () => {
   // 并行加载筛选器选项和数据
   await Promise.all([
-    fetchServerList(),
-    fetchProjectList(),
-    fetchEnvironmentList()
+    loadServers(),
+    loadProjects()
   ])
   fetchData()
 })
