@@ -3,7 +3,9 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span class="title">Jenkins 任务管理</span>
+          <div class="left-actions">
+            <span class="title">Jenkins 任务管理</span>
+          </div>
           <div class="right-actions">
             <el-input
               v-model="searchKeyword"
@@ -17,8 +19,11 @@
                 <el-button @click="handleSearch"><el-icon><Search /></el-icon></el-button>
               </template>
             </el-input>
-            <el-button type="success" @click="handleSync" :loading="syncing">
-              <el-icon class="el-icon--left"><Refresh /></el-icon>同步所有任务
+            <el-button type="success" @click="handleSync" :loading="syncing" style="margin-right: 10px">
+              <el-icon class="el-icon--left"><Refresh /></el-icon>同步
+            </el-button>
+            <el-button type="primary" @click="handleCreate">
+              <el-icon class="el-icon--left"><Plus /></el-icon>创建 Job
             </el-button>
           </div>
         </div>
@@ -88,12 +93,22 @@
         style="width: 100%" 
         border
       >
-        <el-table-column prop="name" label="任务名称" min-width="200" show-overflow-tooltip>
+        <el-table-column prop="name" label="任务名称" min-width="180" show-overflow-tooltip>
           <template #default="scope">
             <span class="job-name">{{ scope.row.name }}</span>
-            <el-tag v-if="scope.row.job_type" size="small" type="info" style="margin-left: 5px">
+          </template>
+        </el-table-column>
+        
+        <el-table-column prop="job_type" label="类型" width="120">
+          <template #default="scope">
+            <el-tag 
+              v-if="scope.row.job_type" 
+              :type="getJobTypeTagType(scope.row.job_type)" 
+              size="small"
+            >
               {{ scope.row.job_type }}
             </el-tag>
+            <span v-else style="color: #909399">-</span>
           </template>
         </el-table-column>
         
@@ -166,13 +181,19 @@
       :job-data="currentJob"
       @success="handleEditSuccess"
     />
+    
+    <!-- 创建对话框 -->
+    <JobCreate
+      v-model:visible="createDialogVisible"
+      @success="handleCreateSuccess"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, VideoPlay, Edit } from '@element-plus/icons-vue'
+import { Search, Refresh, VideoPlay, Edit, Plus } from '@element-plus/icons-vue'
 import { 
   getJenkinsJobs, 
   syncJenkinsJobs, 
@@ -183,9 +204,19 @@ import { getJenkinsServers } from '@/api/jenkins'
 import http from '@/api/index'
 import StatusTag from '../common/StatusTag.vue'
 import JobEdit from './JobEdit.vue'
+import JobCreate from './JobCreate.vue'
 import { parseList, parsePagination } from '../utils/response-parser'
 import { formatTime } from '../utils/formatters'
 
+// Job 类型标签颜色映射
+const getJobTypeTagType = (jobType) => {
+  const typeMap = {
+    'FreeStyle': 'primary',
+    'Pipeline': 'success',
+    'Maven': 'warning'
+  }
+  return typeMap[jobType] || 'info'
+}
 // 状态
 const loading = ref(false)
 const syncing = ref(false)
@@ -195,6 +226,9 @@ const searchKeyword = ref('')
 // 编辑对话框
 const editDialogVisible = ref(false)
 const currentJob = ref(null)
+
+// 创建对话框
+const createDialogVisible = ref(false)
 
 // 分页
 const pagination = ref({
@@ -401,6 +435,17 @@ const handleEdit = (row) => {
 // 编辑成功回调
 const handleEditSuccess = () => {
   fetchData()  // 刷新列表
+}
+
+// 创建
+const handleCreate = () => {
+  createDialogVisible.value = true
+}
+
+const handleCreateSuccess = () => {
+  createDialogVisible.value = false
+  fetchData()
+  ElMessage.success('创建成功，已刷新列表')
 }
 
 // 触发构建

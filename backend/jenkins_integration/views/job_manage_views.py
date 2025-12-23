@@ -39,13 +39,14 @@ class JenkinsJobManageView(APIView):
             if JenkinsJob.objects.filter(name=job_name, server=server).exists():
                 return R.error(message=f"Job '{job_name}' 已存在于本地数据库", code=ResponseCode.JENKINS_JOB_ALREADY_EXISTS)
 
-            # 3. 处理 config_xml
+            # 3. 处理 config_xml 和 job_type
             config_xml = request.data.get('config_xml')
+            job_type = request.data.get('job_type', 'FreeStyle')  # 默认 FreeStyle
             force = request.data.get('force', False)
             
             if not config_xml:
-                # 生成默认配置
-                config_xml = self._get_default_config_xml(request.data.get('description', ''))
+                # 从模板加载配置
+                config_xml = self._load_template_xml(job_type, request.data.get('description', ''))
             else:
                 # XML 校验
                 from ..jenkins_client import validate_xml
@@ -83,7 +84,7 @@ class JenkinsJobManageView(APIView):
                     project_id=request.data.get('project'),
                     environment_id=request.data.get('environment'),
                     plan_id=request.data.get('plan'),
-                    job_type='FreeStyle',
+                    job_type=job_type,  # 使用用户选择的类型
                     is_buildable=True,
                     url=f"{server.url.rstrip('/')}/job/{job_name}/",
                     created_by=created_by
@@ -245,11 +246,41 @@ class JenkinsJobManageView(APIView):
                 data={'traceback': error_trace}
             )
     
-    def _get_default_config_xml(self, description=''):
-        """生成默认配置 XML"""
-        return f"""<?xml version='1.1' encoding='UTF-8'?>
+    def _load_template_xml(self, job_type='FreeStyle', description=''):
+        """从模板文件加载配置 XML"""
+        import os
+        from django.conf import settings
+        
+        # 模板文件映射
+        template_map = {
+            'FreeStyle': 'freestyle.xml',
+            'Pipeline': 'pipeline.xml',
+            'Maven': 'maven.xml'
+        }
+        
+        template_file = template_map.get(job_type, 'freestyle.xml')
+        template_path = os.path.join(
+            settings.BASE_DIR,
+            'jenkins_integration',
+            'job_templates',
+            template_file
+        )
+        
+        try:
+            with open(template_path, 'r', encoding='utf-8') as f:
+                config_xml = f.read()
+            
+            # 替换描述占位符（如果模板中有的话）
+            if description and '{{description}}' in config_xml:
+                config_xml = config_xml.replace('{{description}}', description)
+            
+            return config_xml
+        except FileNotFoundError:
+            logger.error(f"模板文件不存在: {template_path}")
+            # 返回最基础的 FreeStyle 模板
+            return """<?xml version='1.1' encoding='UTF-8'?>
 <project>
-  <description>{description}</description>
+  <description>{}</description>
   <keepDependencies>false</keepDependencies>
   <properties/>
   <scm class="hudson.scm.NullSCM"/>
@@ -262,7 +293,10 @@ class JenkinsJobManageView(APIView):
   <builders/>
   <publishers/>
   <buildWrappers/>
-</project>"""
+</project>""".format(description)
+        except Exception as e:
+            logger.error(f"加载模板文件失败: {e}")
+            raise
 
     def _update_description_in_xml(self, config_xml, new_description):
         """在 XML 中更新 description"""

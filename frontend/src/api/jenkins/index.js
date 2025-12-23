@@ -25,6 +25,7 @@ export { copyJenkinsJob } from './job'              // 复制 Job
 export { toggleJenkinsJob } from './job'            // 启用/禁用 Job
 export { updateJobRelation } from './job'           // 更新本地关联信息
 export { editJenkinsJob } from './job'              // 编辑 Job (同步 Jenkins + DB)
+export { createJenkinsJob } from './job'            // 创建 Job
 
 // ==================== 构建管理 ====================
 export { getBuildLatestStatus } from './build'      // 查询最新构建状态 (轮询用)
