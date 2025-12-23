@@ -176,6 +176,7 @@ import { Search, Refresh, VideoPlay, Edit } from '@element-plus/icons-vue'
 import { 
   getJenkinsJobs, 
   syncJenkinsJobs, 
+  getTaskStatus,
   buildJenkinsJob 
 } from '@/api/jenkins'
 import { getJenkinsServers } from '@/api/jenkins'
@@ -342,17 +343,48 @@ const handleSync = async () => {
   syncing.value = true
   try {
     const res = await syncJenkinsJobs()
-    // 🔥 修复：正确访问响应数据
-    ElMessage.success(res.data.message || '同步任务已在后台启动，请稍后刷新列表')
-    // 延迟几秒后刷新一次
-    setTimeout(() => {
-      fetchData()
-    }, 2000)
+    const taskId = res.data.data.task_id
+    
+    if (taskId) {
+      ElMessage.info('同步任务已启动，正在后台执行...')
+      pollTaskStatus(taskId)
+    } else {
+      ElMessage.warning('同步任务启动，但未返回任务ID')
+    }
   } catch (error) {
     console.error(error)
-  } finally {
+    ElMessage.error('同步任务启动失败')
     syncing.value = false
   }
+}
+
+// 轮询任务状态
+const pollTaskStatus = async (taskId) => {
+  const poll = async () => {
+    try {
+      const res = await getTaskStatus(taskId)
+      const status = res.data.data.status
+      
+      if (status === 'SUCCESS') {
+        ElMessage.success('✅ Jenkins Job 同步完成，已自动刷新列表')
+        syncing.value = false
+        fetchData() // 刷新列表
+      } else if (status === 'FAILURE') {
+        const errorMsg = res.data.data.result || '未知错误'
+        ElMessage.error(`❌ 同步失败: ${errorMsg}`)
+        syncing.value = false
+      } else {
+        // 继续轮询 (PENDING, STARTED, RETRY)
+        setTimeout(poll, 2000)
+      }
+    } catch (error) {
+      console.error('查询任务状态失败:', error)
+      syncing.value = false
+    }
+  }
+  
+  // 开始第一次轮询
+  poll()
 }
 
 // 手动刷新 (列表刷新)

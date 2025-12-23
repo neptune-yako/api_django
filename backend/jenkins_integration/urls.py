@@ -64,6 +64,9 @@ urlpatterns = [
     # 节点配置管理
     path('api/jenkins/nodes/<str:node_name>/config/', views.JenkinsNodeGetConfigView.as_view(), name='jenkins-node-config'),
     path('api/jenkins/nodes/<str:node_name>/ip/', views.JenkinsNodeUpdateIPView.as_view(), name='jenkins-node-update-ip'),
+    
+    # 任务状态查询
+    path('api/jenkins/task/<str:task_id>/status/', views.TaskStatusView.as_view(), name='task-status'),
 ]
 
 # 注册 ViewSets

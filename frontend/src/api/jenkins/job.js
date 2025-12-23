@@ -240,3 +240,19 @@ export function editJenkinsJob(data) {
         data
     })
 }
+
+/**
+ * 查询 Celery 任务状态
+ * GET /api/jenkins/task/{task_id}/status/
+ * 
+ * @param {string} taskId - 任务 ID
+ * @returns {Promise<{code: number, data: Object, message: string}>}
+ * @returns {string} return.data.status - 状态: PENDING/STARTED/SUCCESS/FAILURE
+ * @returns {Any} return.data.result - 任务结果
+ */
+export function getTaskStatus(taskId) {
+    return request({
+        url: `/api/jenkins/task/${taskId}/status/`,
+        method: 'get'
+    })
+}

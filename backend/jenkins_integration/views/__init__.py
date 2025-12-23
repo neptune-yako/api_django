@@ -5,6 +5,7 @@ from .job_remote_views import (
     JenkinsJobCopyView, JenkinsJobToggleView, JenkinsJobBuildView
 )
 from .job_edit_views import JenkinsJobEditView
+from .task_views import TaskStatusView
 from .template_views import JenkinsTemplateListView, JenkinsTemplateDetailView
 from .build_views import JenkinsBuildLatestView, JenkinsBuildAllureView
 from .allure_views import AllureProxyView, SyncBuildResultView

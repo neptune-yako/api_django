@@ -19,6 +19,7 @@ export { testConnectionById } from './server'       // 测试连接 (通过 ID)
 // ==================== Job 管理 ====================
 export { getJenkinsJobs } from './job'              // 获取 Job 列表 (本地 DB)
 export { syncJenkinsJobs } from './job'             // 同步 Jobs (异步任务)
+export { getTaskStatus } from './job'               // 查询任务状态
 export { buildJenkinsJob } from './job'             // 触发构建
 export { copyJenkinsJob } from './job'              // 复制 Job
 export { toggleJenkinsJob } from './job'            // 启用/禁用 Job
