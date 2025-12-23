@@ -126,7 +126,8 @@ const handleSync = async () => {
   syncing.value = true
   try {
     const res = await syncJenkinsJobs()
-    ElMessage.success(res.message || '同步任务已在后台启动，请稍后刷新列表')
+    // 🔥 修复：正确访问响应数据
+    ElMessage.success(res.data.message || '同步任务已在后台启动，请稍后刷新列表')
     // 延迟几秒后刷新一次
     setTimeout(() => {
       fetchData()
@@ -155,25 +156,31 @@ const handleBuild = (row) => {
     }
   ).then(async () => {
     try {
+      // 🔥 修复：使用正确的参数格式
+      // 后端 JenkinsJobBuildView 需要 job_name 参数
+      // Jenkins Job 名称在同一个服务器内是唯一的
       const res = await buildJenkinsJob({
-        job_name: row.name // 注意：后端 build 接口可能需要 job_name 或者是 id，根据之前查看的后端代码，build_views.py 应该是用 name
+        job_name: row.name,
+        // 如果需要参数化构建，可以在这里添加 parameters 字段
+        // parameters: { BRANCH: 'master' }
       })
       
-      // 注意：检查后端 build 接口的参数要求。
-      // JenkinsJobBuildView 通常需要 'job_name' 和可能的 'parameters'
-      // 这里的 row.name 是否唯一？（不同服务器可能有同名 Job）
-      // 如果后端支持 ID 构建更安全，但通常 Jenkins 客户端用 Name。
-      // 假设 job_name 是唯一的或者后端能处理。
-      // 实际上后端 build_views.py 需要确认一下参数。
-      
-      ElMessage.success('构建已触发')
-      // 稍后刷新状态
-      setTimeout(() => {
-        fetchData()
-      }, 3000)
+      // 🔥 修复：正确访问响应数据并处理成功/失败
+      if (res.data.code === 200) {
+        ElMessage.success(res.data.message || '构建已触发')
+        // 稍后刷新状态
+        setTimeout(() => {
+          fetchData()
+        }, 3000)
+      } else {
+        ElMessage.error(res.data.message || '构建触发失败')
+      }
     } catch (error) {
-      console.error(error)
+      console.error('构建触发失败:', error)
+      ElMessage.error('构建触发失败')
     }
+  }).catch(() => {
+    // 用户取消操作
   })
 }
 
