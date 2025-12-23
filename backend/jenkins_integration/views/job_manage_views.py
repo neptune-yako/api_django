@@ -71,9 +71,15 @@ class JenkinsJobManageView(APIView):
 
             # 5. 本地入库
             try:
+                from django.utils import timezone
                 # 注入创建人
                 created_by = request.user.username if request.user.is_authenticated else 'system'
                 
+                # 安全获取关联 ID (处理空字符串等情况)
+                def get_id(key):
+                    val = request.data.get(key)
+                    return val if val else None
+
                 job = JenkinsJob.objects.create(
                     name=job_name,
                     display_name=job_name,
@@ -81,22 +87,25 @@ class JenkinsJobManageView(APIView):
                     description=request.data.get('description', ''),
                     config_xml=config_xml,
                     is_active=request.data.get('is_active', True),
-                    project_id=request.data.get('project'),
-                    environment_id=request.data.get('environment'),
-                    plan_id=request.data.get('plan'),
-                    job_type=job_type,  # 使用用户选择的类型
+                    project_id=get_id('project'),
+                    environment_id=get_id('environment'),
+                    plan_id=get_id('plan'),
+                    job_type=job_type,  
                     is_buildable=True,
-                    url=f"{server.url.rstrip('/')}/job/{job_name}/",
-                    created_by=created_by
+                    # url 字段在模型中不存在，移除之
+                    created_by=created_by,
+                    last_sync_time=timezone.now() # 设置同步时间，确保显示在列表顶部
                 )
                 logger.info(f"本地 Job 创建成功: {job.name}")
                 
                 return R.success(message="创建成功", data=JenkinsJobSerializer(job).data)
                 
             except Exception as e:
-                # 本地创建失败，记录日志 (理论上应回滚远程，但 Jenkins 不支持事务回滚，需人工处理或后续同步修正)
-                logger.error(f"本地数据库创建失败: {e}")
-                return R.success(message=f"远程创建成功，但本地记录失败: {e}") # 尽量不报 500
+                # 本地创建失败
+                error_msg = f"远程创建成功，但本地数据库写入失败: {str(e)}"
+                logger.error(error_msg)
+                # 返回错误状态码，让前端知道出问题了
+                return R.error(message=error_msg)
 
         except Exception as e:
             error_msg = f"创建 Job 异常: {str(e)}"
