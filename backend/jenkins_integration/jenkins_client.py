@@ -1016,3 +1016,507 @@ def update_node_ip(node_name, new_ip, ssh_port=None):
         error_msg = f'更新节点IP失败: {str(e)}'
         logger.error(error_msg)
         return False, error_msg, None
+
+
+# ==================== Node CRUD 操作 (参考 jenkins_node_crud.py) ====================
+
+def create_ssh_node(name, host, credential_id='', port=22, remote_fs='/home/jenkins', 
+                    labels='', num_executors=2, description=''):
+    """
+    创建 SSH 连接节点
+    
+    参考: add_jenkins_node.py 的标准实现方式
+    使用 python-jenkins 的 launcher 和 launcher_params 参数
+    
+    Args:
+        name: 节点名称
+        host: 主机 IP 或域名
+        credential_id: SSH 凭证 ID
+        port: SSH 端口 (默认 22)
+        remote_fs: 远程工作目录 (默认 /home/jenkins)
+        labels: 节点标签 (空格分隔)
+        num_executors: 执行器数量 (默认 2)
+        description: 节点描述
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+        数据格式: {
+            'node_name': str,
+            'host': str,
+            'port': int,
+            'labels': str,
+            'num_executors': int
+        }
+    """
+    try:
+        client = get_jenkins_client()
+        
+        # 检查节点是否已存在
+        if client.node_exists(name):
+            error_msg = f'节点 [{name}] 已存在,无法创建'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        logger.info(f"开始创建 SSH 节点: {name}")
+        
+        # 构建 SSH launcher 参数（参考 add_jenkins_node.py）
+        launcher_params = {
+            'host': host,
+            'port': str(port),  # 必须是字符串类型
+        }
+        
+        # 添加凭证 ID（如果提供）
+        if credential_id:
+            launcher_params['credentialsId'] = credential_id
+        
+        # 使用 python-jenkins 标准方式创建节点
+        client.create_node(
+            name=name,
+            numExecutors=num_executors,
+            nodeDescription=description or f'Jenkins Node: {name}',
+            remoteFS=remote_fs,
+            labels=labels,
+            exclusive=False,
+            launcher=jenkins.LAUNCHER_SSH,      # 指定 SSH launcher
+            launcher_params=launcher_params      # 传递 SSH 参数
+        )
+        
+        logger.info(f"✓ 成功创建节点 [{name}]")
+        logger.info(f"  - 主机: {host}:{port}")
+        logger.info(f"  - 标签: {labels}")
+        logger.info(f"  - 执行器: {num_executors}")
+        logger.info(f"  - 凭证ID: {credential_id or '(未指定)'}")
+        
+        return True, f'成功创建节点 [{name}]', {
+            'node_name': name,
+            'host': host,
+            'port': port,
+            'labels': labels,
+            'num_executors': num_executors,
+            'remote_fs': remote_fs,
+            'credential_id': credential_id
+        }
+        
+    except jenkins.JenkinsException as e:
+        error_msg = f'Jenkins API 错误: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+    except Exception as e:
+        error_msg = f'创建节点失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def delete_node(node_name):
+    """
+    删除指定节点
+    
+    参考: jenkins_node_crud.py 的 delete_node 方法
+    
+    Args:
+        node_name: 节点名称
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+        数据格式: {
+            'node_name': str,
+            'deleted': bool
+        }
+    """
+    try:
+        client = get_jenkins_client()
+        
+        # 检查节点是否存在
+        if not client.node_exists(node_name):
+            error_msg = f'节点 [{node_name}] 不存在,无法删除'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        logger.info(f"开始删除节点: {node_name}")
+        
+        # 删除节点
+        client.delete_node(node_name)
+        
+        logger.info(f"✓ 成功删除节点 [{node_name}]")
+        
+        return True, f'成功删除节点 [{node_name}]', {
+            'node_name': node_name,
+            'deleted': True
+        }
+        
+    except Exception as e:
+        error_msg = f'删除节点失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def enable_node(node_name):
+    """
+    启用节点
+    
+    参考: jenkins_node_crud.py 的 enable_node 方法
+    
+    Args:
+        node_name: 节点名称
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+    """
+    try:
+        client = get_jenkins_client()
+        
+        if not client.node_exists(node_name):
+            error_msg = f'节点 [{node_name}] 不存在'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        logger.info(f"启用节点: {node_name}")
+        client.enable_node(node_name)
+        
+        logger.info(f"✓ 成功启用节点 [{node_name}]")
+        
+        return True, f'成功启用节点 [{node_name}]', {
+            'node_name': node_name,
+            'enabled': True
+        }
+        
+    except Exception as e:
+        error_msg = f'启用节点失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def disable_node(node_name, message=''):
+    """
+    禁用节点
+    
+    参考: jenkins_node_crud.py 的 disable_node 方法
+    
+    Args:
+        node_name: 节点名称
+        message: 禁用原因 (可选)
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+    """
+    try:
+        client = get_jenkins_client()
+        
+        if not client.node_exists(node_name):
+            error_msg = f'节点 [{node_name}] 不存在'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        logger.info(f"禁用节点: {node_name}, 原因: {message}")
+        client.disable_node(node_name, message)
+        
+        logger.info(f"✓ 成功禁用节点 [{node_name}]")
+        
+        return True, f'成功禁用节点 [{node_name}]', {
+            'node_name': node_name,
+            'disabled': True,
+            'message': message
+        }
+        
+    except Exception as e:
+        error_msg = f'禁用节点失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def reconnect_node(node_name):
+    """
+    重新连接节点
+    
+    参考: jenkins_node_crud.py 的 reconnect_node 方法
+    
+    Args:
+        node_name: 节点名称
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+    """
+    try:
+        import time
+        
+        client = get_jenkins_client()
+        
+        if not client.node_exists(node_name):
+            error_msg = f'节点 [{node_name}] 不存在'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        logger.info(f"开始重新连接节点: {node_name}")
+        
+        # 先禁用
+        client.disable_node(node_name)
+        time.sleep(2)
+        
+        # 再启用
+        client.enable_node(node_name)
+        time.sleep(3)
+        
+        # 检查状态
+        node_info = client.get_node_info(node_name)
+        is_online = not node_info.get('offline', True)
+        
+        if is_online:
+            logger.info(f"✓ 节点 [{node_name}] 已上线")
+            return True, f'节点 [{node_name}] 重新连接成功', {
+                'node_name': node_name,
+                'is_online': True,
+                'reconnected': True
+            }
+        else:
+            logger.warning(f"⚠ 节点 [{node_name}] 仍然离线")
+            return True, f'节点 [{node_name}] 重新连接已触发,但仍处于离线状态', {
+                'node_name': node_name,
+                'is_online': False,
+                'reconnected': False,
+                'offline_cause': node_info.get('offlineCauseReason', '')
+            }
+        
+    except Exception as e:
+        error_msg = f'重新连接节点失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def get_node_info(node_name):
+    """
+    获取节点详细信息
+    
+    参考: jenkins_node_crud.py 的 get_node_info 方法
+    
+    Args:
+        node_name: 节点名称
+        
+    Returns:
+        tuple: (是否成功, 消息, 节点信息)
+    """
+    try:
+        client = get_jenkins_client()
+        
+        if not client.node_exists(node_name):
+            error_msg = f'节点 [{node_name}] 不存在'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        logger.info(f"获取节点详细信息: {node_name}")
+        
+        # 获取节点详细信息
+        node_info = client.get_node_info(node_name, depth=1)
+        
+        # 提取关键信息
+        result = {
+            'name': node_name,
+            'displayName': node_info.get('displayName', node_name),
+            'description': node_info.get('description', ''),
+            'numExecutors': node_info.get('numExecutors', 1),
+            'labels': ','.join([label.get('name', '') for label in node_info.get('assignedLabels', [])]),
+            'offline': node_info.get('offline', False),
+            'temporarilyOffline': node_info.get('temporarilyOffline', False),
+            'idle': node_info.get('idle', True),
+            'offlineCauseReason': node_info.get('offlineCauseReason', '') if node_info.get('offline') else '',
+            'monitorData': node_info.get('monitorData', {})
+        }
+        
+        logger.info(f"✓ 成功获取节点 [{node_name}] 详细信息")
+        
+        return True, f'成功获取节点 [{node_name}] 信息', result
+        
+    except Exception as e:
+        error_msg = f'获取节点信息失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def update_node_labels(node_name, labels):
+    """
+    更新节点标签
+    
+    参考: jenkins_node_crud.py 的 update_node_labels 方法
+    
+    Args:
+        node_name: 节点名称
+        labels: 新的标签 (空格分隔字符串)
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+    """
+    try:
+        import xml.etree.ElementTree as ET
+        
+        client = get_jenkins_client()
+        
+        if not client.node_exists(node_name):
+            error_msg = f'节点 [{node_name}] 不存在'
+            logger.warning(error_msg)
+            return False, error_msg, None
+        
+        logger.info(f"更新节点 [{node_name}] 标签: {labels}")
+        
+        # 获取当前配置
+        config_xml = client.get_node_config(node_name)
+        root = ET.fromstring(config_xml)
+        
+        # 更新标签
+        label_elem = root.find('.//label')
+        old_labels = ''
+        
+        if label_elem is not None:
+            old_labels = label_elem.text or ''
+            label_elem.text = labels
+        else:
+            # 如果不存在标签元素,创建一个
+            label_elem = ET.SubElement(root, 'label')
+            label_elem.text = labels
+        
+        # 应用更新
+        updated_config = ET.tostring(root, encoding='unicode')
+        client.reconfig_node(node_name, updated_config)
+        
+        logger.info(f"✓ 成功更新节点 [{node_name}] 标签: {old_labels} → {labels}")
+        
+        return True, f'成功更新节点 [{node_name}] 标签', {
+            'node_name': node_name,
+            'old_labels': old_labels,
+            'new_labels': labels,
+            'updated': True
+        }
+        
+    except Exception as e:
+        error_msg = f'更新节点标签失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def node_exists(node_name):
+    """
+    检查节点是否存在
+    
+    Args:
+        node_name: 节点名称
+        
+    Returns:
+        tuple: (是否成功, 消息, 数据)
+    """
+    try:
+        client = get_jenkins_client()
+        exists = client.node_exists(node_name)
+        
+        return True, '节点存在性检查完成', {
+            'node_name': node_name,
+            'exists': exists
+        }
+        
+    except Exception as e:
+        error_msg = f'检查节点是否存在失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def get_credentials_list():
+    """
+    获取 Jenkins 凭证列表
+    
+    参考 list_credentials.py 实现
+    
+    Returns:
+        tuple: (是否成功, 消息, 凭证列表)
+        凭证列表格式: [
+            {
+                'id': str,              # 凭证ID
+                'description': str,     # 描述
+                'displayName': str,     # 显示名称
+                'typeName': str,        # 类型名称
+                'className': str,       # 类名
+                'scope': str           # 作用域
+            }
+        ]
+    """
+    try:
+        import requests
+        
+        client = get_jenkins_client()
+        
+        # 获取 Jenkins 服务器配置
+        from .models import JenkinsServer
+        try:
+            server = JenkinsServer.objects.first()
+            if not server:
+                return False, 'Jenkins服务器未配置', None
+            
+            jenkins_url = server.url.rstrip('/')
+            username = server.username
+            token = server.token  # 使用 token 而不是 password
+        except Exception as e:
+            return False, f'获取Jenkins服务器配置失败: {str(e)}', None
+        
+        # 尝试多个API端点
+        endpoints = [
+            "/credentials/store/system/domain/_/api/json?depth=2",
+            "/credentials/store/system/domain/_/api/json",
+            "/credentials/api/json",
+        ]
+        
+        auth = (username, token)  # 使用 token 进行认证
+        data = None
+        
+        for endpoint in endpoints:
+            url = jenkins_url + endpoint
+            try:
+                response = requests.get(url, auth=auth, timeout=10)
+                if response.status_code == 200:
+                    resp_data = response.json()
+                    if 'credentials' in resp_data:
+                        data = resp_data
+                        logger.info(f"成功通过端点获取凭证: {endpoint}")
+                        break
+            except Exception as e:
+                logger.debug(f"尝试端点失败 {endpoint}: {str(e)}")
+                continue
+        
+        if not data or 'credentials' not in data:
+            return False, '无法获取凭证信息，请检查Jenkins配置和权限', None
+        
+        # 解析凭证数据
+        credentials = data['credentials']
+        parsed_list = []
+        
+        for cred in credentials:
+            # 提取凭证信息
+            cred_info = {
+                'id': cred.get('id') or cred.get('credentialId') or 'Unknown',
+                'description': cred.get('description', ''),
+                'displayName': cred.get('displayName', ''),
+                'typeName': cred.get('typeName', ''),
+                'className': cred.get('_class', ''),
+                'scope': cred.get('scope', ''),
+            }
+            
+            # 如果没有 typeName，从 className 推断
+            if not cred_info['typeName'] and cred_info['className']:
+                class_name = cred_info['className']
+                if 'SSH' in class_name or 'ssh' in class_name:
+                    cred_info['typeName'] = 'SSH Username with private key'
+                elif 'UsernamePassword' in class_name:
+                    cred_info['typeName'] = 'Username with password'
+                elif 'Secret' in class_name:
+                    cred_info['typeName'] = 'Secret text'
+                elif 'Certificate' in class_name:
+                    cred_info['typeName'] = 'Certificate'
+                else:
+                    parts = class_name.split('.')
+                    cred_info['typeName'] = parts[-1] if parts else 'Unknown'
+            
+            parsed_list.append(cred_info)
+        
+        logger.info(f"成功获取 {len(parsed_list)} 个凭证")
+        
+        return True, f'成功获取 {len(parsed_list)} 个凭证', parsed_list
+        
+    except Exception as e:
+        error_msg = f'获取凭证列表失败: {str(e)}'
+        logger.error(error_msg)
+        return False, error_msg, None
