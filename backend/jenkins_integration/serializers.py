@@ -50,11 +50,11 @@ class JenkinsNodeSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'server', 'server_name',
             'name', 'display_name', 'description',
-            'num_executors', 'labels',
+            'num_executors', 'labels', 'ip_address',
             'is_online', 'is_idle', 'offline_cause',
             'last_sync_time', 'create_time', 'update_time'
         ]
-        read_only_fields = ['id', 'server_name', 'create_time', 'update_time']
+        read_only_fields = ['id', 'server_name', 'ip_address', 'create_time', 'update_time']
 
 
 class JenkinsJobSerializer(serializers.ModelSerializer):

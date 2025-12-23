@@ -1,5 +1,6 @@
-import {defineStore} from 'pinia'
+import { defineStore } from 'pinia'
 import http from '@/api/index'
+import jenkinsApi from '@/api/jenkins.js'
 
 export const ProjectStore = defineStore('proStore', {
     // 数据
@@ -9,6 +10,8 @@ export const ProjectStore = defineStore('proStore', {
             proList: {},
             // 测试环境列表
             envList: [],
+            // Jenkins节点列表
+            jenkinsNodes: [],
             // 顶部选中的测试环境
             env: {},
             // 保存接口列表
@@ -31,7 +34,7 @@ export const ProjectStore = defineStore('proStore', {
     actions: {
         // 获取项目下面所有的环境
         async getEnvironmentList() {
-            const response = await http.environmentApi.getEnvironment({project: this.proList.id})
+            const response = await http.environmentApi.getEnvironment({ project: this.proList.id })
             if (response.status === 200) {
                 this.envList = response.data
             }
@@ -61,18 +64,29 @@ export const ProjectStore = defineStore('proStore', {
         },
         // 获取项目下面所有的测试套件
         async getSceneList() {
-            const response = await http.suiteApi.getScene({project: this.proList.id})
+            const response = await http.suiteApi.getScene({ project: this.proList.id })
             if (response.status === 200) {
                 this.sceneList = response.data
             }
         },
         // 获取项目下所有的测试计划
         async getPlanList() {
-            const response = await http.planApi.getPlan({project: this.proList.id})
+            const response = await http.planApi.getPlan({ project: this.proList.id })
             if (response.status === 200) {
                 this.planList = response.data
             }
-        }
+        },
+        // 获取Jenkins节点列表
+        async getJenkinsNodes() {
+            try {
+                const response = await jenkinsApi.getNodesList()
+                if (response.status === 200 && response.data.code === 200) {
+                    this.jenkinsNodes = response.data.data
+                }
+            } catch (error) {
+                console.error('获取Jenkins节点失败:', error)
+            }
+        },
     },
     persist: {
         // 是否开启持久化
