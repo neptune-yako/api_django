@@ -61,12 +61,38 @@ urlpatterns = [
     # 查询数据库中的节点列表
     path('api/jenkins/nodes/', views.JenkinsNodesListView.as_view(), name='jenkins-nodes-list'),
     
+    # 创建节点
+    path('api/jenkins/nodes/create/', views.JenkinsNodeCreateView.as_view(), name='jenkins-node-create'),
+
+    # 同步节点到项目环境
+    path('api/jenkins/nodes/sync/', views.JenkinsNodeSyncView.as_view(), name='jenkins-node-sync'),
+    
+    # 从 Jenkins 同步所有节点到数据库
+    path('api/jenkins/nodes/sync-from-jenkins/', views.JenkinsNodesSyncFromJenkinsView.as_view(), name='jenkins-nodes-sync-from-jenkins'),
+
+    # 获取凭证列表
+    path('api/jenkins/credentials/', views.JenkinsCredentialsListView.as_view(), name='jenkins-credentials-list'),
+    
     # 节点配置管理
     path('api/jenkins/nodes/<str:node_name>/config/', views.JenkinsNodeGetConfigView.as_view(), name='jenkins-node-config'),
     path('api/jenkins/nodes/<str:node_name>/ip/', views.JenkinsNodeUpdateIPView.as_view(), name='jenkins-node-update-ip'),
     
     # 任务状态查询
     path('api/jenkins/task/<str:task_id>/status/', views.TaskStatusView.as_view(), name='task-status'),
+    # 获取节点详细信息
+    path('api/jenkins/nodes/<str:node_name>/info/', views.JenkinsNodeInfoView.as_view(), name='jenkins-node-info'),
+    
+    # 删除节点
+    path('api/jenkins/nodes/<str:node_name>/delete/', views.JenkinsNodeDeleteView.as_view(), name='jenkins-node-delete'),
+    
+    # 启用/禁用节点
+    path('api/jenkins/nodes/<str:node_name>/toggle/', views.JenkinsNodeToggleView.as_view(), name='jenkins-node-toggle'),
+    
+    # 重新连接节点
+    path('api/jenkins/nodes/<str:node_name>/reconnect/', views.JenkinsNodeReconnectView.as_view(), name='jenkins-node-reconnect'),
+    
+    # 更新节点标签
+    path('api/jenkins/nodes/<str:node_name>/labels/', views.JenkinsNodeLabelsView.as_view(), name='jenkins-node-labels'),
 ]
 
 # 注册 ViewSets
