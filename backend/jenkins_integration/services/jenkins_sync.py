@@ -56,21 +56,26 @@ class JenkinsSyncService:
                 # 4.1 获取 Job 详情 (使用指定服务器)
                 detail_success, _, detail_data = get_job_detail_by_server(server, job_name)
                 
-                defaults = {}
+                defaults = {
+                    'display_name': job_name,  # 添加必需字段
+                    'created_by': 'jenkins_sync',  # 添加必需字段
+                }
                 if detail_success and detail_data:
-                    defaults['description'] = detail_data.get('description')
-                    defaults['config_xml'] = detail_data.get('config_xml')
-                    defaults['is_buildable'] = detail_data.get('is_buildable')
+                    defaults['description'] = detail_data.get('description', '')
+                    defaults['config_xml'] = detail_data.get('config_xml', '')
+                    defaults['is_buildable'] = detail_data.get('is_buildable', True)
                     defaults['last_build_number'] = detail_data.get('last_build_number')
-                    defaults['last_build_status'] = detail_data.get('last_build_status')
+                    defaults['last_build_status'] = detail_data.get('last_build_status', '')
                 
                 # 4.2 存入数据库
                 with transaction.atomic():
-                    JenkinsJob.objects.update_or_create(
+                    job, created = JenkinsJob.objects.update_or_create(
                         name=job_name,
                         server=server,
                         defaults=defaults
                     )
+                    # 对于新创建的job,不设置environments(保持为空)
+                    # 对于更新的job,保留现有的environments关联不变
                 sync_count += 1
             
             logger.info(f"从服务器 [{server.name}] 同步完成，共同步 {sync_count} 个任务")

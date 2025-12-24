@@ -81,7 +81,7 @@ class JenkinsJobAdmin(admin.ModelAdmin):
     
     list_display = [
         'id', 'server', 'name', 'display_name',
-        'project', 'plan', 'environment',
+        'project', 'plan',
         'job_type', 'is_active', 'is_buildable',
         'last_build_number', 'last_build_status',
         'created_by', 'create_time'
@@ -93,16 +93,21 @@ class JenkinsJobAdmin(admin.ModelAdmin):
     ]
     search_fields = ['name', 'display_name', 'description', 'created_by']
     readonly_fields = ['create_time', 'update_time']
-    filter_horizontal = ['nodes']  # 多对多字段使用横向筛选器
+    filter_horizontal = ['nodes', 'environments']  # 多对多字段使用横向筛选器
     
     fieldsets = (
         ('基本信息', {
             'fields': ('server', 'name', 'display_name', 'description')
         }),
         ('关联信息（可选）', {
-            'fields': ('project', 'plan', 'environment'),
+            'fields': ('project', 'plan'),
             'classes': ('collapse',),
             'description': '这些字段是可选的，用于后期与现有系统集成'
+        }),
+        ('测试环境（可选）', {
+            'fields': ('environments',),
+            'classes': ('collapse',),
+            'description': '选择关联的测试环境（可多选）'
         }),
         ('节点配置（可选）', {
             'fields': ('nodes',),

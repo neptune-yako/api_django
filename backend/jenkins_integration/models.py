@@ -121,13 +121,12 @@ class JenkinsJob(models.Model):
         verbose_name="关联测试计划",
         related_name='jenkins_jobs'
     )
-    environment = models.ForeignKey(
+    environments = models.ManyToManyField(
         'project.Environment',
-        on_delete=models.SET_NULL,
-        null=True,
         blank=True,
-        verbose_name="测试环境",
-        related_name='jenkins_jobs'
+        verbose_name="测试环境列表",
+        related_name='jenkins_jobs',
+        help_text="可选择多个测试环境"
     )
     
     # 多对多关系：执行节点（可选，预留扩展）
@@ -189,7 +188,6 @@ class JenkinsJob(models.Model):
             models.Index(fields=['server'], name='idx_jenkins_job_server'),
             models.Index(fields=['project'], name='idx_jenkins_job_project'),
             models.Index(fields=['plan'], name='idx_jenkins_job_plan'),
-            models.Index(fields=['environment'], name='idx_jenkins_job_env'),
             models.Index(fields=['is_active'], name='idx_jenkins_job_active'),
             models.Index(fields=['last_build_time'], name='idx_jenkins_job_build_time'),
         ]

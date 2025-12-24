@@ -5,6 +5,7 @@ from scene.serializer import SceneSerializer
 
 class PlanSerializer(serializers.ModelSerializer):
     """测试任务的序列化器"""
+    project_name = serializers.CharField(source='project.name', read_only=True)
 
     class Meta:
         model = Plan

@@ -114,7 +114,8 @@
       
       <el-form-item label="测试环境">
         <el-select 
-          v-model="form.environment" 
+          v-model="form.environments" 
+          multiple
           clearable 
           placeholder="请先选择项目" 
           style="width: 100%"
@@ -127,6 +128,9 @@
             :value="env.id"
           />
         </el-select>
+        <span style="font-size: 12px; color: #909399; display: block; margin-top: 5px">
+          💡 可选择多个测试环境
+        </span>
       </el-form-item>
       
       <el-form-item label="测试计划">
@@ -241,7 +245,7 @@ const form = ref({
   is_active: true,
   config_xml: '',
   project: null,
-  environment: null,
+  environments: [],  // 改为数组
   plan: null
 })
 
@@ -357,7 +361,7 @@ const handleTypeChange = async (newType) => {
 // 处理项目变化
 const handleProjectChange = async (projectId) => {
   // 清空环境和计划选择
-  form.value.environment = null
+  form.value.environments = []  // 改为空数组
   form.value.plan = null
   
   if (projectId) {
@@ -381,7 +385,7 @@ watch(dialogVisible, async (visible) => {
       is_active: true,
       config_xml: '',
       project: null,
-      environment: null,
+      environments: [],  // 改为空数组
       plan: null
     }
     
@@ -481,7 +485,7 @@ const handleCreate = async () => {
       config_xml: form.value.config_xml,
       is_active: form.value.is_active,
       project: form.value.project || undefined,
-      environment: form.value.environment || undefined,
+      environments: form.value.environments.length > 0 ? form.value.environments : undefined,  // 修改
       plan: form.value.plan || undefined,
       force: forceCreate
     })

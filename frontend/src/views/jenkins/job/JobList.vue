@@ -141,6 +141,22 @@
         
         <el-table-column prop="server_name" label="所属服务器" width="150" show-overflow-tooltip />
         
+        <el-table-column prop="environment_names" label="测试环境" width="200">
+          <template #default="scope">
+            <div v-if="scope.row.environment_names && scope.row.environment_names.length > 0">
+              <el-tag 
+                v-for="(envName, index) in scope.row.environment_names" 
+                :key="index"
+                size="small"
+                style="margin: 2px"
+              >
+                {{ envName }}
+              </el-tag>
+            </div>
+            <span v-else style="color: #909399">-</span>
+          </template>
+        </el-table-column>
+        
         <el-table-column prop="last_build_status" label="最后构建状态" width="150">
           <template #default="scope">
             <StatusTag :status="scope.row.last_build_status" type="build" />

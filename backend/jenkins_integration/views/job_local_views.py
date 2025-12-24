@@ -17,16 +17,22 @@ class JenkinsJobViewSet(mixins.RetrieveModelMixin,
     用途：更新 Job 的关联关系 (Plan, Project, Environment)
     注意：不涉及 Jenkins 用于的远程配置修改
     """
-    queryset = JenkinsJob.objects.all().order_by('-last_sync_time')
+    queryset = JenkinsJob.objects.all().select_related(
+        'server', 'project', 'plan'
+    ).prefetch_related(
+        'environments', 'nodes'
+    ).order_by('-last_sync_time')
     serializer_class = JenkinsJobSerializer
     pagination_class = MyPaginator
-    filterset_fields = ['server', 'project', 'plan', 'environment', 'is_active']
+    # 移除 environment,因为ManyToMany字段需要特殊处理
+    filterset_fields = ['server', 'project', 'plan', 'is_active']
 
     def list(self, request, *args, **kwargs):
         """
         列表查询，支持：
         - 按 name 模糊搜索
-        - 按 server/project/plan/environment/is_active 精确筛选（filterset_fields）
+        - 按 server/project/plan/is_active 精确筛选（filterset_fields）
+        - 按 environment 精确筛选（多对多关系）
         """
         # 获取基础 queryset
         queryset = self.filter_queryset(self.get_queryset())
@@ -35,6 +41,11 @@ class JenkinsJobViewSet(mixins.RetrieveModelMixin,
         name = request.query_params.get('name')
         if name:
             queryset = queryset.filter(name__icontains=name)
+        
+        # 按环境ID过滤 (支持多对多)
+        environment_id = request.query_params.get('environment')
+        if environment_id:
+            queryset = queryset.filter(environments__id=environment_id)
             
         # 分页
         page = self.paginate_queryset(queryset)

@@ -72,7 +72,13 @@
       <el-divider content-position="left">业务关联（仅本地）</el-divider>
       
       <el-form-item label="关联项目">
-        <el-select v-model="form.project" clearable placeholder="选择项目" style="width: 100%">
+        <el-select 
+          v-model="form.project" 
+          clearable 
+          placeholder="选择项目" 
+          style="width: 100%"
+          @change="handleProjectChange"
+        >
           <el-option
             v-for="project in projectList"
             :key="project.id"
@@ -80,23 +86,42 @@
             :value="project.id"
           />
         </el-select>
+        <span style="font-size: 12px; color: #909399; display: block; margin-top: 5px">
+          💡 选择项目后，环境和计划选项将自动过滤
+        </span>
       </el-form-item>
       
       <el-form-item label="测试环境">
-        <el-select v-model="form.environment" clearable placeholder="选择环境" style="width: 100%">
+        <el-select 
+          v-model="form.environments" 
+          multiple
+          clearable 
+          placeholder="请先选择项目" 
+          style="width: 100%"
+          :disabled="!form.project"
+        >
           <el-option
-            v-for="env in environmentList"
+            v-for="env in filteredEnvironmentList"
             :key="env.id"
             :label="env.name"
             :value="env.id"
           />
         </el-select>
+        <span style="font-size: 12px; color: #909399; display: block; margin-top: 5px">
+          💡 可选择多个测试环境
+        </span>
       </el-form-item>
       
       <el-form-item label="测试计划">
-        <el-select v-model="form.plan" clearable placeholder="选择计划" style="width: 100%">
+        <el-select 
+          v-model="form.plan" 
+          clearable 
+          placeholder="请先选择项目" 
+          style="width: 100%"
+          :disabled="!form.project"
+        >
           <el-option
-            v-for="plan in planList"
+            v-for="plan in filteredPlanList"
             :key="plan.id"
             :label="plan.name"
             :value="plan.id"
@@ -169,6 +194,7 @@ import 'ace-builds/src-noconflict/ext-language_tools'
 ace.config.set('basePath', 'https://cdn.jsdelivr.net/npm/ace-builds@' + ace.version + '/src-noconflict/')
 
 import { editJenkinsJob } from '@/api/jenkins'
+import { useJobFormOptions } from '@/composables/useJobFormOptions'
 import http from '@/api/index'
 
 // Props & Emits
@@ -203,7 +229,7 @@ const form = ref({
   is_active: true,
   config_xml: '',
   project: null,
-  environment: null,
+  environments: [],  // 改为数组
   plan: null
 })
 
@@ -220,10 +246,28 @@ const xmlValidation = ref({
   error: ''
 })
 
-// 筛选选项
-const projectList = ref([])
-const environmentList = ref([])
-const planList = ref([])
+// 使用 composable 获取表单选项
+const {
+  serverList,
+  projectList,
+  environmentList,
+  planList,
+  loadAllOptions,
+  loadEnvironments,
+  loadPlans
+} = useJobFormOptions()
+
+// 根据选中的项目过滤环境列表
+const filteredEnvironmentList = computed(() => {
+  if (!form.value.project) return []
+  return environmentList.value.filter(env => env.project === form.value.project)
+})
+
+// 根据选中的项目过滤计划列表
+const filteredPlanList = computed(() => {
+  if (!form.value.project) return []
+  return planList.value.filter(plan => plan.project === form.value.project)
+})
 
 // 强制保存标记
 let forceEdit = false
@@ -242,7 +286,7 @@ const jobTypeTagType = computed(() => {
 })
 
 // 监听 jobData 变化，初始化表单
-watch(() => props.jobData, (newData) => {
+watch(() => props.jobData, async (newData) => {
   if (newData) {
     form.value = {
       id: newData.id,
@@ -252,47 +296,41 @@ watch(() => props.jobData, (newData) => {
       is_active: newData.is_active !== false,
       config_xml: newData.config_xml || '',
       project: newData.project || null,
-      environment: newData.environment || null,
+      environments: newData.environments || [],  // 处理环境ID数组
       plan: newData.plan || null
     }
     xmlValidation.value = { valid: true, error: '' }
     forceEdit = false
+    
+    // 如果有项目，加载对应的环境和计划
+    if (newData.project) {
+      await Promise.all([
+        loadEnvironments(newData.project),
+        loadPlans(newData.project)
+      ])
+    }
   }
 }, { immediate: true })
 
-// 加载筛选选项
-const loadOptions = async () => {
-  try {
-    // 加载项目列表
-    const projectRes = await http.projectApi.getProject({ page: 1, size: 100 })
-    projectList.value = projectRes.data.list || []
-    
-    // 加载环境列表
-    try {
-      const { ProjectStore } = await import('@/stores/module/ProStore')
-      const pstore = ProjectStore()
-      if (pstore.proList && pstore.proList.id) {
-        const envRes = await http.environmentApi.getEnvironment(pstore.proList.id)
-        environmentList.value = envRes.data || []
-      }
-    } catch (e) {
-      console.warn('加载环境列表失败:', e)
-    }
-    
-    // 加载计划列表（如果有的话）
-    // TODO: 根据实际 API 调整
-    // const planRes = await http.planApi.getPlanList()
-    // planList.value = planRes.data || []
-    
-  } catch (error) {
-    console.error('加载选项失败:', error)
+// 处理项目变化
+const handleProjectChange = async (projectId) => {
+  // 清空环境和计划选择
+  form.value.environments = []
+  form.value.plan = null
+  
+  if (projectId) {
+    // 重新加载该项目下的环境和计划
+    await Promise.all([
+      loadEnvironments(projectId),
+      loadPlans(projectId)
+    ])
   }
 }
 
 // 打开对话框时加载选项
 watch(dialogVisible, (visible) => {
   if (visible) {
-    loadOptions()
+    loadAllOptions()
   }
 })
 
@@ -425,7 +463,7 @@ const handleSave = async () => {
         config_xml: form.value.config_xml || undefined,
         is_active: form.value.is_active,
         project: form.value.project || undefined,
-        environment: form.value.environment || undefined,
+        environments: form.value.environments || undefined,  // 修改
         plan: form.value.plan || undefined,
         force: forceEdit
     }

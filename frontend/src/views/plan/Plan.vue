@@ -27,6 +27,9 @@
         <el-divider content-position="center"><b>基本信息</b></el-divider>
         <div class="name_edit">
           <el-form :model="activePlan" :rules="formDataRules" ref="formDataRef" style="flex: 1; margin-right: 10px;">
+            <el-form-item label="所属项目：">
+              <el-input v-model="activePlan.project_name" disabled placeholder="项目名称" />
+            </el-form-item>
             <el-form-item label="测试计划：" prop="name" >
               <el-input v-model="activePlan.name" placeholder="请输入测试计划名称" clearable/>
             </el-form-item>

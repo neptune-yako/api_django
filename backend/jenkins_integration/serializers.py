@@ -64,7 +64,10 @@ class JenkinsJobSerializer(serializers.ModelSerializer):
     server_name = serializers.CharField(source='server.name', read_only=True)
     project_name = serializers.CharField(source='project.name', read_only=True, allow_null=True)
     plan_name = serializers.CharField(source='plan.name', read_only=True, allow_null=True)
-    environment_name = serializers.CharField(source='environment.name', read_only=True, allow_null=True)
+    
+    # 环境字段 - 支持多环境
+    environment_names = serializers.SerializerMethodField()
+    environment_name = serializers.SerializerMethodField()  # 向后兼容
     
     # 统计信息
     reports_count = serializers.SerializerMethodField()
@@ -76,7 +79,7 @@ class JenkinsJobSerializer(serializers.ModelSerializer):
             'name', 'display_name', 'description',
             'project', 'project_name',
             'plan', 'plan_name',
-            'environment', 'environment_name',
+            'environments', 'environment_names', 'environment_name',  # 修改这里
             'nodes',  # 多对多字段
             'config_xml', 'parameters',
             'is_active', 'is_buildable', 'job_type',
@@ -86,9 +89,19 @@ class JenkinsJobSerializer(serializers.ModelSerializer):
             'reports_count'  # 额外统计字段
         ]
         read_only_fields = [
-            'id', 'server_name', 'project_name', 'plan_name', 'environment_name',
+            'id', 'server_name', 'project_name', 'plan_name', 
+            'environment_names', 'environment_name',
             'create_time', 'update_time', 'reports_count'
         ]
+    
+    def get_environment_names(self, obj):
+        """获取所有环境名称列表"""
+        return [env.name for env in obj.environments.all()]
+    
+    def get_environment_name(self, obj):
+        """向后兼容:返回第一个环境名称"""
+        first_env = obj.environments.first()
+        return first_env.name if first_env else None
     
     def get_reports_count(self, obj):
         """获取该 Job 下的报告数量"""

@@ -83,6 +83,14 @@ class JenkinsJobManageView(APIView):
                 def get_id(key):
                     val = request.data.get(key)
                     return val if val else None
+                
+                # 获取环境ID列表 (支持 environments 或 environment)
+                environment_ids = request.data.get('environments', []) or request.data.get('environment')
+                if isinstance(environment_ids, int):
+                    # 兼容旧格式:单个ID转为列表
+                    environment_ids = [environment_ids]
+                elif environment_ids is None or environment_ids == '':
+                    environment_ids = []
 
                 job = JenkinsJob.objects.create(
                     name=job_name,
@@ -92,14 +100,17 @@ class JenkinsJobManageView(APIView):
                     config_xml=config_xml,
                     is_active=request.data.get('is_active', True),
                     project_id=get_id('project'),
-                    environment_id=get_id('environment'),
                     plan_id=get_id('plan'),
                     job_type=job_type,  
                     is_buildable=True,
-                    # url 字段在模型中不存在，移除之
                     created_by=created_by,
                     last_sync_time=timezone.now() # 设置同步时间，确保显示在列表顶部
                 )
+                
+                # 设置多对多关系
+                if environment_ids:
+                    job.environments.set(environment_ids)
+                
                 logger.info(f"本地 Job 创建成功: {job.name}")
                 
                 return R.success(message="创建成功", data=JenkinsJobSerializer(job).data)
@@ -229,13 +240,18 @@ class JenkinsJobManageView(APIView):
                 job.project_id = data['project']
                 update_fields.append('project')
             
-            if 'environment' in data:
-                job.environment_id = data['environment']
-                update_fields.append('environment')
-            
             if 'plan' in data:
                 job.plan_id = data['plan']
                 update_fields.append('plan')
+            
+            # 更新环境关联 (多对多) - 支持 environments 或 environment
+            if 'environments' in data or 'environment' in data:
+                environment_ids = data.get('environments') or data.get('environment', [])
+                if isinstance(environment_ids, int):
+                    environment_ids = [environment_ids]
+                elif environment_ids is None or environment_ids == '':
+                    environment_ids = []
+                job.environments.set(environment_ids)
             
             # 保存
             if update_fields:

@@ -184,7 +184,7 @@ else:
             'ENGINE': 'django.db.backends.mysql',
             'NAME': 'django',
             'USER': 'root',
-            'PASSWORD': '123456py',
+            'PASSWORD': '123456',
             # 👇 修改点 1：必须用本机回环地址
             'HOST': '127.0.0.1', 
             # 👇 修改点 2：必须用 Docker 映射出来的外部端口 (你的配置是 9527)
@@ -379,8 +379,9 @@ CELERY_TASK_TIME_LIMIT = 30 * 60
 # docker环境
 # CELERY_BROKER_URL = 'redis://:123456py@redis:6379/4'
 # ------
-# 开发环境
-CELERY_BROKER_URL = 'redis://:123456py@127.0.0.1:16379/4'
+# 开发环境（本地 Redis 无密码）
+# CELERY_BROKER_URL = 'redis://:123456py@127.0.0.1:16379/4'
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379/4'
 # -------
 # 使用django-orm作为结果存储
 CELERY_RESULT_BACKEND = 'django-db'
