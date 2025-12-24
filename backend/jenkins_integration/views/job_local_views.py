@@ -61,18 +61,39 @@ class JenkinsJobViewSet(mixins.RetrieveModelMixin,
 class SyncJenkinsJobsView(APIView):
     """
     同步 Jenkins Jobs 视图
-    触发异步任务，从 Jenkins 服务器拉取数据并更新本地 DB
+    触发异步任务,从指定 Jenkins 服务器拉取数据并更新本地 DB
     """
     
     def post(self, request):
         try:
+            # 获取请求参数
+            server_id = request.data.get('server_id')
+            
+            # 参数校验
+            if not server_id:
+                return R.bad_request(message="请选择要同步的 Jenkins 服务器")
+            
+            # 验证服务器存在性
+            from ..models import JenkinsServer
+            try:
+                server = JenkinsServer.objects.get(id=server_id)
+            except JenkinsServer.DoesNotExist:
+                return R.error(message=f"服务器 ID [{server_id}] 不存在", code=ResponseCode.NOT_FOUND)
+            
+            # 验证连接状态
+            if server.connection_status != 'connected':
+                return R.error(
+                    message=f"服务器 [{server.name}] 连接状态为 {server.connection_status},请先在服务器管理页面测试连接",
+                    code=ResponseCode.BAD_REQUEST
+                )
+            
             # 调用 Celery 异步任务
             from ..tasks import sync_jenkins_jobs_task
-            task = sync_jenkins_jobs_task.delay()
+            task = sync_jenkins_jobs_task.delay(server_id=server_id)
             
             return R.success(
-                message="Jenkins Jobs 同步任务已在后台启动",
-                data={'task_id': task.id}
+                message=f"Jenkins Jobs 同步任务已启动 (服务器: {server.name})",
+                data={'task_id': task.id, 'server_name': server.name}
             )
                 
         except Exception as e:

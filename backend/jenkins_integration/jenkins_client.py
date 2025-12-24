@@ -146,10 +146,97 @@ def get_job_detail(job_name):
             # timestamp 需要转换，暂时先不做
         }
         
+        
         return True, "获取成功", result
 
     except Exception as e:
-        error_msg = f"获取 Job 详情异常: {str(e)}"
+        error_msg = f"获取 Job [{job_name}] 详情异常: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg, None
+
+
+def get_all_jobs_by_server(server):
+    """
+    获取指定服务器的所有 Jobs
+    
+    Args:
+        server: JenkinsServer 模型实例
+        
+    Returns:
+        tuple: (是否成功, 消息, jobs列表)
+    """
+    try:
+        # 使用服务器的凭据创建客户端
+        client = get_jenkins_client(
+            url=server.url,
+            username=server.username,
+            token=server.token
+        )
+        jobs = client.get_all_jobs()
+        
+        logger.info(f"从服务器 [{server.name}] 成功获取 {len(jobs)} 个 Jobs")
+        return True, f'成功获取 {len(jobs)} 个 Jobs', jobs
+        
+    except Exception as e:
+        error_msg = f"从服务器 [{server.name}] 获取 Jobs 异常: {str(e)}"
+        logger.error(error_msg)
+        return False, error_msg, []
+
+
+def get_job_detail_by_server(server, job_name):
+    """
+    获取指定服务器上的 Jenkins Job 详细信息
+    
+    Args:
+        server: JenkinsServer 模型实例
+        job_name: Job 名称
+        
+    Returns:
+        (bool, str, dict): (是否成功, 消息, Job详情字典)
+    """
+    try:
+        # 使用服务器的凭据
+        server_url = server.url.rstrip('/')
+        
+        # 获取 Job 详情 JSON
+        json_url = f"{server_url}/job/{job_name}/api/json?tree=description,buildable,inQueue,lastBuild[number,result,timestamp]"
+        
+        json_resp = requests.get(
+            json_url, 
+            auth=(server.username, server.token), 
+            timeout=10
+        )
+        if json_resp.status_code != 200:
+            return False, f"获取 Job JSON 失败: {json_resp.status_code}", None
+            
+        job_data = json_resp.json()
+        
+        # 获取 config.xml
+        config_url = f"{server_url}/job/{job_name}/config.xml"
+        config_resp = requests.get(
+            config_url, 
+            auth=(server.username, server.token), 
+            timeout=10
+        )
+        
+        config_xml = ""
+        if config_resp.status_code == 200:
+            config_xml = config_resp.text
+            
+        # 组装返回数据
+        last_build = job_data.get('lastBuild') or {}
+        result = {
+            'description': job_data.get('description'),
+            'is_buildable': job_data.get('buildable', True),
+            'config_xml': config_xml,
+            'last_build_number': last_build.get('number'),
+            'last_build_status': last_build.get('result') or '',
+        }
+        
+        return True, "获取成功", result
+
+    except Exception as e:
+        error_msg = f"从服务器 [{server.name}] 获取 Job [{job_name}] 详情异常: {str(e)}"
         logger.error(error_msg)
         return False, error_msg, None
 

@@ -19,9 +19,45 @@
                 <el-button @click="handleSearch"><el-icon><Search /></el-icon></el-button>
               </template>
             </el-input>
-            <el-button type="success" @click="handleSync" :loading="syncing" style="margin-right: 10px">
-              <el-icon class="el-icon--left"><Refresh /></el-icon>同步
+          
+          <!-- 同步操作组 -->
+          <div class="sync-group">
+            <span class="sync-label">同步来源:</span>
+            <el-select
+              v-model="selectedServerId"
+              placeholder="选择服务器"
+              style="width: 180px"
+              :disabled="syncing"
+            >
+              <el-option
+                v-for="server in serverList"
+                :key="server.id"
+                :label="server.name"
+                :value="server.id"
+                :disabled="server.connection_status !== 'connected'"
+              >
+                <span :style="{ color: server.connection_status === 'connected' ? '#67C23A' : '#909399' }">
+                  {{ server.name }}
+                  <el-tag 
+                    v-if="server.connection_status === 'failed'" 
+                    type="danger" 
+                    size="small"
+                    style="margin-left: 8px"
+                  >
+                    连接失败
+                  </el-tag>
+                </span>
+              </el-option>
+            </el-select>
+            <el-button 
+              type="success" 
+              @click="handleSync" 
+              :loading="syncing"
+              :disabled="!selectedServerId"
+            >
+              <el-icon class="el-icon--left"><Refresh /></el-icon>同步 Jobs
             </el-button>
+          </div>
             <el-button type="primary" @click="handleCreate">
               <el-icon class="el-icon--left"><Plus /></el-icon>创建 Job
             </el-button>
@@ -203,6 +239,7 @@ const getJobTypeTagType = (jobType) => {
 // 状态
 const loading = ref(false)
 const syncing = ref(false)
+const selectedServerId = ref(null)  // 选中的服务器ID
 const tableData = ref([])
 const searchKeyword = ref('')
 
@@ -315,21 +352,44 @@ const handlePageChange = (newPage) => {
 
 // 同步任务
 const handleSync = async () => {
+  // 校验是否选择了服务器
+  if (!selectedServerId.value) {
+    ElMessage.warning('请先选择要同步的 Jenkins 服务器')
+    return
+  }
+  
+  // 查找选中的服务器对象
+  const selectedServer = serverList.value.find(s => s.id === selectedServerId.value)
+  
+  // 二次校验连接状态
+  if (selectedServer && selectedServer.connection_status !== 'connected') {
+    ElMessageBox.alert(
+      `服务器 "${selectedServer.name}" 连接状态为 ${selectedServer.connection_status},请先前往服务器管理页面测试连接`,
+      '无法同步',
+      {
+        confirmButtonText: '知道了',
+        type: 'warning'
+      }
+    )
+    return
+  }
+  
   syncing.value = true
   try {
-    const res = await syncJenkinsJobs()
+    // 传递 server_id 参数
+    const res = await syncJenkinsJobs({ server_id: selectedServerId.value })
     const taskId = res.data.data.task_id
     
     if (taskId) {
-      ElMessage.info('同步任务已启动，正在后台执行...')
+      const serverName = selectedServer?.name || '选中的服务器'
+      ElMessage.info(`正在从 "${serverName}" 同步任务...`)
       pollTaskStatus(taskId)
     } else {
-      ElMessage.warning('同步任务启动，但未返回任务ID')
+      ElMessage.warning('同步任务启动,但未返回任务ID')
     }
   } catch (error) {
     console.error(error)
-    ElMessage.error('同步任务启动失败')
-    syncing.value = false
+    // 错误已由拦截器处理
   }
 }
 
@@ -429,14 +489,23 @@ const handleBuild = (row) => {
   })
 }
 
+
 onMounted(async () => {
   // 并行加载筛选器选项和数据
   await Promise.all([
     loadServers(),
     loadProjects()
   ])
+  
+  // 默认选择第一个 connected 的服务器
+  const connectedServer = serverList.value.find(s => s.connection_status === 'connected')
+  if (connectedServer) {
+    selectedServerId.value = connectedServer.id
+  }
+  
   fetchData()
 })
+
 </script>
 
 <style scoped>
@@ -466,4 +535,23 @@ onMounted(async () => {
   background-color: #f5f7fa;
   border-radius: 4px;
 }
+
+/* 同步操作组样式 */
+.sync-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: #f0f9ff;
+  border: 1px solid #91d5ff;
+  border-radius: 4px;
+  margin-right: 10px;
+}
+
+.sync-label {
+  font-size: 14px;
+  color: #606266;
+  white-space: nowrap;
+}
+
 </style>

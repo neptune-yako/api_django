@@ -7,15 +7,18 @@ import logging
 logger = logging.getLogger('django')
 
 @shared_task
-def sync_jenkins_jobs_task():
+def sync_jenkins_jobs_task(server_id=None):
     """
-    异步同步所有 Jenkins Jobs
+    异步同步 Jenkins Jobs
+    
+    Args:
+        server_id: Jenkins 服务器 ID (可选)
     """
     try:
-        logger.info("开始执行 Jenkins Jobs 异步同步任务...")
+        logger.info(f"开始执行 Jenkins Jobs 异步同步任务 (server_id={server_id})...")
         from .services.jenkins_sync import JenkinsSyncService
         
-        success, msg, count = JenkinsSyncService.sync_jobs()
+        success, msg, count = JenkinsSyncService.sync_jobs(server_id=server_id)
         
         if success:
             logger.info(f"Jenkins Jobs 异步同步成功: {msg}")

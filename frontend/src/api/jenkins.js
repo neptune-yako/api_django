@@ -167,8 +167,8 @@ export function getJenkinsJobs(params) {
   return http({ url: '/api/jenkins/pipeline/', method: 'get', params })
 }
 
-export function syncJenkinsJobs() {
-  return http({ url: '/api/jenkins/jobs/sync/', method: 'post' })
+export function syncJenkinsJobs(data) {
+  return http({ url: '/api/jenkins/jobs/sync/', method: 'post', data })
 }
 
 export function createJenkinsJob(data) {

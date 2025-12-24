@@ -12,33 +12,49 @@ class JenkinsSyncService:
     """Jenkins 数据同步服务"""
 
     @staticmethod
-    def sync_jobs():
+    def sync_jobs(server_id=None):
         """
-        同步所有 Jenkins Jobs 到数据库 (包含详情)
+        同步 Jenkins Jobs 到数据库 (包含详情)
+        
+        Args:
+            server_id: Jenkins 服务器 ID (可选,默认使用第一个服务器)
+            
+        Returns:
+            tuple: (是否成功, 消息, 同步数量)
         """
-        # 1. 从 Jenkins 获取所有 Jobs 列表
-        success, msg, jobs_data = get_all_jobs()
-        if not success:
-            return False, msg, 0
-
         try:
-            # 2. 获取默认的 Jenkins Server
-            server = JenkinsServer.objects.first()
-            if not server:
-                return False, "请先配置 Jenkins 服务器", 0
+            # 1. 获取指定的 Jenkins Server
+            if server_id:
+                try:
+                    server = JenkinsServer.objects.get(id=server_id)
+                except JenkinsServer.DoesNotExist:
+                    return False, f"服务器 ID [{server_id}] 不存在", 0
+            else:
+                server = JenkinsServer.objects.first()
+                if not server:
+                    return False, "请先配置 Jenkins 服务器", 0
+            
+            # 2. 校验连接状态
+            if server.connection_status != 'connected':
+                return False, f"服务器 [{server.name}] 连接状态为 {server.connection_status},请先测试连接", 0
+            
+            # 3. 从指定服务器获取所有 Jobs 列表
+            from ..jenkins_client import get_all_jobs_by_server, get_job_detail_by_server
+            success, msg, jobs_data = get_all_jobs_by_server(server)
+            if not success:
+                return False, msg, 0
 
             sync_count = 0
             
-            # 3. 遍历列表，逐个同步详情
+            # 4. 遍历列表，逐个同步详情
             for job_item in jobs_data:
                 job_name = job_item.get('name')
                 
                 if not job_name:
                     continue
                     
-                # 3.1 获取 Job 详情 (config.xml, description...)
-                # 注意：这里会产生 HTTP 请求，如果是异步任务就没问题
-                detail_success, _, detail_data = get_job_detail(job_name)
+                # 4.1 获取 Job 详情 (使用指定服务器)
+                detail_success, _, detail_data = get_job_detail_by_server(server, job_name)
                 
                 defaults = {}
                 if detail_success and detail_data:
@@ -48,7 +64,7 @@ class JenkinsSyncService:
                     defaults['last_build_number'] = detail_data.get('last_build_number')
                     defaults['last_build_status'] = detail_data.get('last_build_status')
                 
-                # 3.2 存入数据库
+                # 4.2 存入数据库
                 with transaction.atomic():
                     JenkinsJob.objects.update_or_create(
                         name=job_name,
@@ -57,13 +73,14 @@ class JenkinsSyncService:
                     )
                 sync_count += 1
             
-            logger.info(f"Jenkins Jobs 同步完成，共同步 {sync_count} 个任务")
-            return True, f"成功同步 {sync_count} 个任务", sync_count
+            logger.info(f"从服务器 [{server.name}] 同步完成，共同步 {sync_count} 个任务")
+            return True, f"成功从 [{server.name}] 同步 {sync_count} 个任务", sync_count
 
         except Exception as e:
             error_msg = f"同步 Jobs 数据库异常: {str(e)}"
             logger.error(error_msg)
             return False, error_msg, 0
+
 
     @staticmethod
     def sync_nodes(project_id, username='jenkins_sync'):
