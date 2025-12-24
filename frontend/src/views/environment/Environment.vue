@@ -103,9 +103,9 @@
     </div>
   </div>
   <div class="button" v-show='EnvInfo.id'>
-    <el-button @click='saveEnv' type="primary" plain icon='FolderChecked'>{{ EnvInfo.is_virtual ? '保存并创建' : '保存' }}</el-button>
-    <el-button @click='copyEnv' type="primary" plain icon='DocumentCopy' v-if="!EnvInfo.is_virtual">复制</el-button>
-    <el-button @click='clickDeleteEnv' type="danger" plain icon='Delete' v-if="!EnvInfo.is_virtual">删除</el-button>
+    <el-button @click='saveEnv' type="primary" plain icon='FolderChecked' :loading="isSaving" :disabled="isSaving">{{ EnvInfo.is_virtual ? '保存并创建' : '保存' }}</el-button>
+    <el-button @click='copyEnv' type="primary" plain icon='DocumentCopy' v-if="!EnvInfo.is_virtual" :loading="isCopying" :disabled="isCopying">复制</el-button>
+    <el-button @click='clickDeleteEnv' type="danger" plain icon='Delete' v-if="!EnvInfo.is_virtual" :loading="isDeleting" :disabled="isDeleting">删除</el-button>
   </div>
   
   <!-- 统一创建对话框 -->
@@ -260,6 +260,31 @@
       <el-form-item label="SSH端口">
         <el-input-number v-model="editIPForm.sshPort" :min="1" :max="65535" placeholder="默认22"></el-input-number>
       </el-form-item>
+      <el-form-item label="SSH凭证">
+        <el-select 
+          v-model="editIPForm.credentialId" 
+          placeholder="选择SSH凭证（可选）" 
+          filterable 
+          clearable
+          allow-create
+          :loading="isLoadingCredentials"
+          style="width: 100%;"
+        >
+          <el-option
+            v-for="cred in credentialsList"
+            :key="cred.id"
+            :label="`${cred.id} ${cred.description ? '- ' + cred.description : ''}`"
+            :value="cred.id"
+          >
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span>{{ cred.id }}</span>
+              <el-tag v-if="cred.typeName.includes('SSH')" type="success" size="small">{{ cred.typeName }}</el-tag>
+              <el-tag v-else size="small">{{ cred.typeName }}</el-tag>
+            </div>
+          </el-option>
+        </el-select>
+        <span style="font-size: 12px; color: #909399;">留空则保持不变</span>
+      </el-form-item>
     </el-form>
     <template #footer>
       <span class="dialog-footer">
@@ -352,13 +377,21 @@ import {
   updateNodeLabels, 
   deleteNode,
   createNode,
-  getCredentialsList
+  getCredentialsList,
+  syncNodesFromJenkins
 } from '@/api/jenkins'
 
 const uStore = UserStore()
 let envList = ref([])
 const pstore = ProjectStore()
 const isRefreshing = ref(false)
+
+// Loading状态
+const isSaving = ref(false)
+const isDeleting = ref(false)
+const isCopying = ref(false)
+const isLoading = ref(false)
+const isDeletingNode = ref(false)  // 删除Jenkins节点的loading状态
 
 // 获取测试环境列表
 async function getEvnList() {
@@ -419,10 +452,20 @@ async function refreshAll() {
       duration: 1500
     })
 
-    // 同时获取环境列表和Jenkins节点列表（启用自动同步）
+    // 先从 Jenkins 同步节点到数据库
+    try {
+      const syncResponse = await syncNodesFromJenkins()
+      if (syncResponse.data.code === 200) {
+        logger.info('从 Jenkins 同步节点成功:', syncResponse.data.message)
+      }
+    } catch (syncError) {
+      logger.warn('从 Jenkins 同步节点失败,继续查询:', syncError)
+    }
+
+    // 然后获取环境列表和节点列表
     await Promise.all([
       getEvnList(),
-      pstore.getJenkinsNodes(true)  // 传递 true 启用自动同步到环境
+      pstore.getJenkinsNodes()  // 从数据库获取最新节点列表
     ])
     
     ElNotification({
@@ -499,6 +542,12 @@ function openCreateDialog() {
   if (createNodeFormRef.value) {
     createNodeFormRef.value.clearValidate()
   }
+  
+  // 自动加载SSH凭证列表（后台静默加载）
+  loadCredentials().catch(() => {
+    // 静默失败，用户可以稍后手动刷新
+    console.warn('自动加载凭证列表失败，用户可点击"刷新凭证列表"按钮手动加载')
+  })
   
   createDialogVisible.value = true
 }
@@ -622,27 +671,39 @@ function clickDeleteEnv() {
         center: true
       })
       .then(async () => {
-        const response = await http.environmentApi.deleteEnvironment(EnvInfo.value.id)
-        if (response.status === 204) {
-          // 提示
-          ElNotification({
-            title: '测试环境删除成功！',
-            type: 'success',
-            duration: 1500
-          })
-          // 更新页面数据
-          await getEvnList()
-          // 从新设置一个选中的测试环境
-          if (envList.value.length > 0) {
-            selectEnv(envList.value[0])
+        try {
+          isDeleting.value = true
+          const response = await http.environmentApi.deleteEnvironment(EnvInfo.value.id)
+          if (response.status === 204) {
+            // 提示
+            ElNotification({
+              title: '测试环境删除成功！',
+              type: 'success',
+              duration: 1500
+            })
+            // 更新页面数据
+            await getEvnList()
+            // 从新设置一个选中的测试环境
+            if (envList.value.length > 0) {
+              selectEnv(envList.value[0])
+            }
+          } else {
+            ElNotification({
+              title: '环境删除失败！',
+              message: response.data.detail,
+              type: 'error',
+              duration: 1500
+            })
           }
-        } else {
+        } catch (error) {
           ElNotification({
             title: '环境删除失败！',
-            message: response.data.detail,
+            message: error.message || '未知错误',
             type: 'error',
             duration: 1500
           })
+        } finally {
+          isDeleting.value = false
         }
       })
       .catch(() => {
@@ -656,32 +717,46 @@ function clickDeleteEnv() {
 
 // 复制测试环境
 async function copyEnv() {
-  const params = EnvInfo.value
-  params.name = params.name + '-复制'
-  const response = await http.environmentApi.createEnvironment(params)
-  if (response.status === 201) {
-    ElNotification({
-      title: '测试环境复制成功！',
-      type: 'success',
-      duration: 1500
-    })
-    // 更新页面数据
-    await getEvnList()
-  } else {
+  try {
+    isCopying.value = true
+    const params = EnvInfo.value
+    params.name = params.name + '-复制'
+    const response = await http.environmentApi.createEnvironment(params)
+    if (response.status === 201) {
+      ElNotification({
+        title: '测试环境复制成功！',
+        type: 'success',
+        duration: 1500
+      })
+      // 更新页面数据
+      await getEvnList()
+    } else {
+      ElNotification({
+        title: '环境复制失败！',
+        message: response.data.detail,
+        type: 'error',
+        duration: 1500
+      })
+    }
+  } catch (error) {
     ElNotification({
       title: '环境复制失败！',
-      message: response.data.detail,
+      message: error.message || '未知错误',
       type: 'error',
       duration: 1500
     })
+  } finally {
+    isCopying.value = false
   }
 }
 
 // 保存测试环境
 async function saveEnv() {
-  // 如果是虚拟环境，通过保存操作创建新环境
-  if (EnvInfo.value.is_virtual) {
-    try {
+  try {
+    isSaving.value = true
+    
+    // 如果是虚拟环境，通过保存操作创建新环境
+    if (EnvInfo.value.is_virtual) {
       const params = {
         project: pstore.proList.id,
         name: env_name.value,
@@ -721,41 +796,48 @@ async function saveEnv() {
           duration: 1500
         })
       }
-    } catch (error) {
-      ElMessage.error('创建环境失败: ' + (error.message || '未知错误'))
+      return
     }
-    return
-  }
 
-  // 常规保存逻辑
-  const env_id = EnvInfo.value.id
-  // 修改时传递的参数
-  const params = {
-    name: env_name.value,
-    host: env_host.value,
-    global_func: env_global_func.value,
-    db: JSON.parse(env_db.value),
-    headers: env_headers.value,
-    global_variable: env_global_variable.value,
-    debug_global_variable: env_debug_global_variable.value,
-  }
-  const response = await http.environmentApi.updateEnvironment(env_id, params)
-  if (response.status === 200 && response.data.code !== 300) {
-    // 给出提示
+    // 常规保存逻辑
+    const env_id = EnvInfo.value.id
+    // 修改时传递的参数
+    const params = {
+      name: env_name.value,
+      host: env_host.value,
+      global_func: env_global_func.value,
+      db: JSON.parse(env_db.value),
+      headers: env_headers.value,
+      global_variable: env_global_variable.value,
+      debug_global_variable: env_debug_global_variable.value,
+    }
+    const response = await http.environmentApi.updateEnvironment(env_id, params)
+    if (response.status === 200 && response.data.code !== 300) {
+      // 给出提示
+      ElNotification({
+        title: '测试环境保存成功！',
+        type: 'success',
+        duration: 1500
+      })
+      // 更新页面数据
+      await getEvnList()
+    } else {
+      ElNotification({
+        title: '环境保存失败！',
+        message: response.data.detail,
+        type: 'error',
+        duration: 1500
+      })
+    }
+  } catch (error) {
     ElNotification({
-      title: '测试环境保存成功！',
-      type: 'success',
-      duration: 1500
-    })
-    // 更新页面数据
-    await getEvnList()
-  } else {
-    ElNotification({
-      title: '环境保存失败！',
-      message: response.data.detail,
+      title: '操作失败！',
+      message: error.message || '未知错误',
       type: 'error',
       duration: 1500
     })
+  } finally {
+    isSaving.value = false
   }
 }
 
@@ -766,7 +848,8 @@ const editIPForm = ref({
   nodeName: '',
   currentIP: '',
   newIP: '',
-  sshPort: 22
+  sshPort: 22,
+  credentialId: ''
 })
 
 // 打开修改IP对话框
@@ -781,8 +864,17 @@ function openEditIPDialog() {
     nodeName: matchedNode.name,
     currentIP: matchedNode.ip_address || '未配置',
     newIP: '',
-    sshPort: 22
+    sshPort: 22,
+    credentialId: ''
   }
+  
+  // 打开对话框时自动加载凭证（如果还没加载）
+  if (credentialsList.value.length === 0) {
+    loadCredentials().catch(() => {
+      // 静默失败，用户可以稍后手动刷新
+    })
+  }
+  
   editIPDialogVisible.value = true
 }
 
@@ -798,7 +890,8 @@ async function handleUpdateIP() {
     
     const response = await updateNodeIP(editIPForm.value.nodeName, {
       new_ip: editIPForm.value.newIP,
-      ssh_port: editIPForm.value.sshPort
+      ssh_port: editIPForm.value.sshPort,
+      credential_id: editIPForm.value.credentialId
     })
     
     // 修正：读取response.data而不是response
@@ -813,7 +906,7 @@ async function handleUpdateIP() {
       // 关闭对话框
       editIPDialogVisible.value = false
       
-      // 刷新Jenkins节点列表
+      // 刷新Jenkins节点列表(IP更新不影响环境列表结构)
       await getJenkinsNodes()
       
       // 更新当前环境的host字段为新IP,并自动保存
@@ -887,7 +980,7 @@ async function handleToggleNode(node) {
         type: 'success',
         duration: 2000
       })
-      // 刷新节点列表
+      // 刷新节点列表(启用/禁用不影响环境列表结构)
       await getJenkinsNodes()
     } else {
       ElMessage.error(response.data.message || `${actionText}节点失败`)
@@ -918,7 +1011,7 @@ async function handleReconnectNode(node) {
         type: 'success',
         duration: 2000
       })
-      // 刷新节点列表
+      // 刷新节点列表(重连不影响环境列表结构)
       await getJenkinsNodes()
     } else {
       ElMessage.error(response.data.message || '重新连接失败')
@@ -942,23 +1035,67 @@ async function handleDeleteNode(node) {
       }
     )
     
-    const response = await deleteNode(node.name)
+    // 显示删除中的通知
+    const loadingNotification = ElNotification({
+      title: '正在删除...',
+      message: `正在删除节点 ${node.name}`,
+      type: 'info',
+      duration: 0  // 不自动关闭
+    })
     
-    if (response.data.code === 200) {
-      ElNotification({
-        title: '成功',
-        message: response.data.message,
-        type: 'success',
-        duration: 2000
-      })
-      // 刷新节点列表
-      await getJenkinsNodes()
-    } else {
-      ElMessage.error(response.data.message || '删除节点失败')
+    try {
+      isDeletingNode.value = true
+      
+      // 记录当前选中的ID，以便后续判断是否需要重置选择
+      const currentSelectedId = EnvInfo.value.id
+      const isDeletingCurrent = currentSelectedId === 'node-' + node.name
+      
+      const response = await deleteNode(node.name)
+      
+      // 关闭loading通知
+      loadingNotification.close()
+      
+      if (response.data.code === 200) {
+        ElNotification({
+          title: '成功',
+          message: response.data.message,
+          type: 'success',
+          duration: 2000
+        })
+        
+        // 必须同时刷新环境列表和节点列表，以确保视图正确更新
+        // 对于虚拟节点，刷新节点列表即可移除
+        // 对于关联节点，刷新节点列表可更新环境状态点
+        await Promise.all([
+          getJenkinsNodes(),
+          getEvnList()
+        ])
+        
+        // 如果删除的是当前选中的虚拟节点，重置选择到第一个环境
+        if (isDeletingCurrent) {
+          if (mixedEnvironments.value.length > 0) {
+            selectEnv(mixedEnvironments.value[0])
+          } else {
+            EnvInfo.value = {}
+          }
+        }
+      } else {
+        ElMessage.error(response.data.message || '删除节点失败')
+      }
+    } catch (error) {
+      // 关闭loading通知
+      loadingNotification.close()
+      
+      if (error !== 'cancel') {
+        ElMessage.error(error.response?.data?.message || '删除节点失败')
+      }
+    } finally {
+      isDeletingNode.value = false
     }
   } catch (error) {
+    // 用户取消删除
     if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.message || '删除节点失败')
+      ElMessage.error('操作失败')
     }
   }
 }
@@ -1013,7 +1150,7 @@ async function handleUpdateLabels() {
       // 关闭对话框
       editLabelsDialogVisible.value = false
       
-      // 刷新Jenkins节点列表
+      // 刷新Jenkins节点列表(标签更新不影响环境列表结构)
       await getJenkinsNodes()
     } else {
       ElMessage.error(response.data.message || '更新标签失败')
@@ -1086,7 +1223,12 @@ async function loadCredentials() {
     
     if (response.data.code === 200) {
       credentialsList.value = response.data.data || []
-      ElMessage.success(`成功加载 ${credentialsList.value.length} 个凭证`)
+      // 只在有凭证时显示提示
+      if (credentialsList.value.length > 0) {
+        ElMessage.success(`已加载 ${credentialsList.value.length} 个SSH凭证`)
+      } else {
+        ElMessage.warning('未找到SSH凭证，请先在Jenkins中配置')
+      }
     } else {
       ElMessage.error(response.data.message || '加载凭证列表失败')
     }
@@ -1125,8 +1267,8 @@ async function handleCreateNode() {
     
     if (response.data.code === 200) {
       ElNotification({
-        title: '成功',
-        message: response.data.message,
+        title: '✓ 节点创建成功',
+        message: '节点已创建，详细状态信息正在后台同步中...',
         type: 'success',
         duration: 3000
       })
@@ -1134,11 +1276,16 @@ async function handleCreateNode() {
       // 关闭对话框
       createDialogVisible.value = false
       
-      // 刷新Jenkins节点列表
-      await getJenkinsNodes()
+      // 立即刷新列表显示基本信息
+      await Promise.all([
+        getJenkinsNodes(),
+        getEvnList()
+      ])
       
-      // 提示用户
-      ElMessage.success('节点已创建，请等待几秒后节点会上线')
+      // 提示用户稍后刷新查看完整状态
+      setTimeout(() => {
+        ElMessage.info('建议10秒后手动刷新，查看节点完整状态')
+      }, 1500)
     } else {
       ElMessage.error(response.data.message || '创建节点失败')
     }

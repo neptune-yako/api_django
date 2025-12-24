@@ -65,6 +65,9 @@ urlpatterns = [
 
     # 同步节点到项目环境
     path('api/jenkins/nodes/sync/', views.JenkinsNodeSyncView.as_view(), name='jenkins-node-sync'),
+    
+    # 从 Jenkins 同步所有节点到数据库
+    path('api/jenkins/nodes/sync-from-jenkins/', views.JenkinsNodesSyncFromJenkinsView.as_view(), name='jenkins-nodes-sync-from-jenkins'),
 
     # 获取凭证列表
     path('api/jenkins/credentials/', views.JenkinsCredentialsListView.as_view(), name='jenkins-credentials-list'),

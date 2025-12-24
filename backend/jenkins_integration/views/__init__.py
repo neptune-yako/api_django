@@ -11,5 +11,5 @@ from .node_views import (
     JenkinsNodesListView, JenkinsNodeGetConfigView, JenkinsNodeUpdateIPView,
     JenkinsNodeCreateView, JenkinsNodeDeleteView, JenkinsNodeInfoView,
     JenkinsNodeToggleView, JenkinsNodeReconnectView, JenkinsNodeLabelsView,
-    JenkinsCredentialsListView, JenkinsNodeSyncView
+    JenkinsCredentialsListView, JenkinsNodeSyncView, JenkinsNodesSyncFromJenkinsView
 )

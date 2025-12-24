@@ -903,9 +903,9 @@ def get_node_current_ip(node_name):
         return False, error_msg, None
 
 
-def update_node_ip(node_name, new_ip, ssh_port=None):
+def update_node_ip(node_name, new_ip, ssh_port=None, credential_id=None):
     """
-    更新节点的主机 IP 地址
+    更新节点的主机 IP 地址和SSH凭证
     
     参考 update_node_ip.py demo 实现
     
@@ -913,6 +913,7 @@ def update_node_ip(node_name, new_ip, ssh_port=None):
         node_name: 节点名称
         new_ip: 新的 IP 地址
         ssh_port: SSH 端口(可选,默认保持不变)
+        credential_id: SSH凭证ID(可选,默认保持不变)
         
     Returns:
         tuple: (是否成功, 消息, 数据)
@@ -961,7 +962,26 @@ def update_node_ip(node_name, new_ip, ssh_port=None):
                     updated = True
                     logger.info(f"✓ 更新 SSH 端口: {old_port} → {ssh_port}")
         
-        # 5. 更新 JNLP tunnel(对于 JNLP 连接节点)
+        # 5. 更新凭证ID(如果指定)
+        if credential_id:
+            cred_elements = root.findall(".//credentialsId")
+            if cred_elements:
+                for cred_elem in cred_elements:
+                    old_cred = cred_elem.text or '(空)'
+                    if old_cred != credential_id:
+                        cred_elem.text = credential_id
+                        updated = True
+                        logger.info(f"✓ 更新 SSH 凭证ID: {old_cred} → {credential_id}")
+            else:
+                # 如果没有credentialsId元素，尝试在launcher下创建
+                launcher_elem = root.find(".//launcher")
+                if launcher_elem is not None:
+                    cred_elem = ET.SubElement(launcher_elem, 'credentialsId')
+                    cred_elem.text = credential_id
+                    updated = True
+                    logger.info(f"✓ 添加 SSH 凭证ID: {credential_id}")
+        
+        # 6. 更新 JNLP tunnel(对于 JNLP 连接节点)
         tunnel_elements = root.findall(".//tunnel")
         for tunnel_elem in tunnel_elements:
             if tunnel_elem.text and ":" in tunnel_elem.text:

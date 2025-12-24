@@ -276,6 +276,11 @@ class JenkinsNodeUpdateIPView(APIView):
                         'type': 'integer',
                         'description': 'SSH端口(可选,默认保持不变)',
                         'example': 22
+                    },
+                    'credential_id': {
+                        'type': 'string',
+                        'description': 'SSH凭证ID(可选,留空则保持不变)',
+                        'example': 'my-ssh-key'
                     }
                 },
                 'required': ['new_ip']
@@ -335,14 +340,16 @@ class JenkinsNodeUpdateIPView(APIView):
             # 获取请求参数
             new_ip = request.data.get('new_ip')
             ssh_port = request.data.get('ssh_port')
+            credential_id = request.data.get('credential_id')  # 新增：获取凭证ID
             
             if not new_ip:
                 return R.bad_request(message='缺少必需参数: new_ip')
             
-            logger.info(f"开始更新节点 [{node_name}] 的IP地址: {new_ip}")
+            logger.info(f"开始更新节点 [{node_name}] 的IP地址: {new_ip}" + 
+                       (f", 凭证: {credential_id}" if credential_id else ""))
             
             # 1. 更新Jenkins服务器上的配置
-            success, message, data = update_node_ip(node_name, new_ip, ssh_port)
+            success, message, data = update_node_ip(node_name, new_ip, ssh_port, credential_id)
             
             if not success:
                 return R.jenkins_error(message=message)
@@ -528,6 +535,38 @@ class JenkinsNodeCreateView(APIView):
             )
             
             if success:
+                # 创建成功后，快速记录基本信息到数据库（不调用耗时的 get_node_info）
+                try:
+                    from ..models import JenkinsNode, JenkinsServer
+                    
+                    # 获取默认的 Jenkins 服务器
+                    server = JenkinsServer.objects.filter(is_active=True).first()
+                    
+                    if server:
+                        # 只存储创建时的基本参数，避免耗时的 API 调用
+                        JenkinsNode.objects.update_or_create(
+                            server=server,
+                            name=name,
+                            defaults={
+                                'display_name': name,
+                                'description': description,
+                                'num_executors': num_executors,
+                                'labels': labels,
+                                'ip_address': host,  # 使用创建时提供的 host 作为 IP
+                                'is_ip_manual': True,  # 标记为手动设置
+                                'is_online': False,  # 初始标记为离线，等待同步任务更新
+                                'is_idle': True,
+                                'offline_cause': '等待同步',
+                            }
+                        )
+                        logger.info(f"✓ 节点 [{name}] 基本信息已记录到数据库，详细信息将通过同步任务更新")
+                    else:
+                        logger.warning(f"未找到活跃的 Jenkins 服务器，跳过数据库同步")
+                        
+                except Exception as db_error:
+                    logger.error(f"同步节点到数据库失败: {str(db_error)}")
+                    # 即使数据库同步失败，仍然返回创建成功（因为 Jenkins 上已创建）
+                
                 return R.success(message=message, data=data)
             else:
                 return R.jenkins_error(message=message)
@@ -811,6 +850,26 @@ class JenkinsNodeToggleView(APIView):
                 success, msg, data = disable_node(node_name, message)
             
             if success:
+                # 同步更新数据库中的节点状态
+                try:
+                    from ..models import JenkinsNode
+                    node = JenkinsNode.objects.filter(name=node_name).first()
+                    if node:
+                        # 更新节点在线状态
+                        if action == 'enable':
+                            node.is_online = True
+                            node.offline_cause = ''
+                        else:  # disable
+                            node.is_online = False
+                            node.offline_cause = message or '手动禁用'
+                        node.save()
+                        logger.info(f"✓ 已同步更新数据库中节点 [{node_name}] 的状态")
+                    else:
+                        logger.warning(f"数据库中未找到节点 [{node_name}]，跳过数据库更新")
+                except Exception as db_error:
+                    logger.error(f"更新数据库失败: {str(db_error)}")
+                    # 即使数据库更新失败，Jenkins操作已成功，仍然返回成功
+                
                 return R.success(message=msg, data=data)
             else:
                 return R.jenkins_error(message=msg)
@@ -891,6 +950,25 @@ class JenkinsNodeReconnectView(APIView):
             success, message, data = reconnect_node(node_name)
             
             if success:
+                # 同步更新数据库中的节点状态
+                try:
+                    from ..models import JenkinsNode
+                    node = JenkinsNode.objects.filter(name=node_name).first()
+                    if node and data:
+                        # 更新节点在线状态
+                        node.is_online = data.get('is_online', False)
+                        if not node.is_online:
+                            node.offline_cause = data.get('offline_cause', '')
+                        else:
+                            node.offline_cause = ''
+                        node.save()
+                        logger.info(f"✓ 已同步更新数据库中节点 [{node_name}] 的状态")
+                    else:
+                        logger.warning(f"数据库中未找到节点 [{node_name}]，跳过数据库更新")
+                except Exception as db_error:
+                    logger.error(f"更新数据库失败: {str(db_error)}")
+                    # 即使数据库更新失败，Jenkins操作已成功，仍然返回成功
+                
                 return R.success(message=message, data=data)
             else:
                 return R.jenkins_error(message=message)
@@ -1210,3 +1288,134 @@ class JenkinsNodeSyncView(APIView):
                 message=error_msg,
                 data={'traceback': error_trace}
             )
+
+
+# ==================== 从 Jenkins 同步所有节点到数据库 ====================
+
+class JenkinsNodesSyncFromJenkinsView(APIView):
+    """从 Jenkins 服务器同步所有节点到本地数据库"""
+    
+    @extend_schema(
+        tags=['Jenkins 节点管理'],
+        summary='从 Jenkins 同步节点',
+        description='''
+        从 Jenkins 服务器获取所有节点并同步到本地数据库。
+        
+        功能说明:
+        - 从 Jenkins 服务器获取所有节点信息
+        - 创建或更新本地数据库中的节点记录
+        - 不会删除本地已有的节点记录
+        - 适用于首次同步或手动刷新节点列表
+        ''',
+        responses={
+            200: {
+                'description': '同步成功',
+                'content': {
+                    'application/json': {
+                        'example': {
+                            'code': 200,
+                            'message': '成功同步 5 个节点',
+                            'data': {
+                                'total': 5,
+                                'created': 2,
+                                'updated': 3
+                            }
+                        }
+                    }
+                }
+            },
+            500: {'description': '服务器内部错误'}
+        }
+    )
+    def post(self, request):
+        """
+        从 Jenkins 同步节点到数据库
+        
+        Returns:
+            {
+                "code": 200,
+                "message": "成功同步 5 个节点",
+                "data": {
+                    "total": 5,
+                    "created": 2,
+                    "updated": 3
+                }
+            }
+        """
+        try:
+            from ..models import JenkinsNode, JenkinsServer
+            from ..jenkins_client import get_all_nodes
+            
+            logger.info("开始从 Jenkins 服务器同步节点")
+            
+            # 获取活跃的 Jenkins 服务器
+            server = JenkinsServer.objects.filter(is_active=True).first()
+            
+            if not server:
+                return R.bad_request(message='未找到活跃的 Jenkins 服务器配置')
+            
+            # 从 Jenkins 获取所有节点
+            success, message, nodes_data = get_all_nodes()
+            
+            if not success:
+                return R.jenkins_error(message=f'从 Jenkins 获取节点失败: {message}')
+            
+            if not nodes_data:
+                return R.success(message='Jenkins 上没有节点', data={'total': 0, 'created': 0, 'updated': 0})
+            
+            # 同步到数据库
+            created_count = 0
+            updated_count = 0
+            
+            for node_data in nodes_data:
+                node_name = node_data.get('name')
+                
+                if not node_name:
+                    continue
+                
+                # 使用 update_or_create 创建或更新节点
+                node, created = JenkinsNode.objects.update_or_create(
+                    server=server,
+                    name=node_name,
+                    defaults={
+                        'display_name': node_data.get('displayName', node_name),
+                        'description': node_data.get('description', ''),
+                        'num_executors': node_data.get('numExecutors', 1),
+                        'labels': node_data.get('labels', ''),
+                        'ip_address': node_data.get('ip_address', ''),
+                        'is_online': not node_data.get('offline', False),
+                        'is_idle': node_data.get('idle', True),
+                        'offline_cause': node_data.get('offlineCauseReason', ''),
+                    }
+                )
+                
+                if created:
+                    created_count += 1
+                    logger.info(f"✓ 创建节点: {node_name}")
+                else:
+                    updated_count += 1
+                    logger.info(f"✓ 更新节点: {node_name}")
+            
+            total_count = created_count + updated_count
+            result_message = f'成功同步 {total_count} 个节点 (新增 {created_count}, 更新 {updated_count})'
+            
+            logger.info(result_message)
+            
+            return R.success(
+                message=result_message,
+                data={
+                    'total': total_count,
+                    'created': created_count,
+                    'updated': updated_count
+                }
+            )
+            
+        except Exception as e:
+            error_msg = f"同步节点失败: {str(e)}"
+            error_trace = traceback.format_exc()
+            logger.error(f"{error_msg}\\n{error_trace}")
+            return R.internal_error(
+                message=error_msg,
+                data={'traceback': error_trace}
+            )
+
