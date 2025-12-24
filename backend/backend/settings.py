@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "cronjob.apps.CronjobConfig",
     "bug.apps.BugConfig",
     'jenkins_integration.apps.JenkinsConfig',  # 添加jenkins应用
+    'test_report',  # 测试报告模块
 ]
 
 # 注册中间件
