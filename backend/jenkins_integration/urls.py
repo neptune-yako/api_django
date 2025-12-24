@@ -37,7 +37,10 @@ urlpatterns = [
     
     # 获取 Allure 报告 URL
     path('api/jenkins/build/allure/', views.JenkinsBuildAllureView.as_view(), name='jenkins-build-allure'),
-    
+
+    # 任务状态查询
+    path('api/jenkins/task/<str:task_id>/status/', views.TaskStatusView.as_view(), name='task-status'),
+     
     # ===== Job 模板相关 =====
     # 获取所有可用模板列表
     path('api/jenkins/templates/', views.JenkinsTemplateListView.as_view(), name='jenkins-template-list'),
@@ -65,8 +68,6 @@ urlpatterns = [
     path('api/jenkins/nodes/<str:node_name>/config/', views.JenkinsNodeGetConfigView.as_view(), name='jenkins-node-config'),
     path('api/jenkins/nodes/<str:node_name>/ip/', views.JenkinsNodeUpdateIPView.as_view(), name='jenkins-node-update-ip'),
     
-    # 任务状态查询
-    path('api/jenkins/task/<str:task_id>/status/', views.TaskStatusView.as_view(), name='task-status'),
 ]
 
 # 注册 ViewSets
