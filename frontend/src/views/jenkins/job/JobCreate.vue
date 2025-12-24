@@ -501,7 +501,9 @@ const handleCreate = async () => {
     
   } catch (error) {
     console.error('创建失败:', error)
-    ElMessage.error('创建失败: ' + error.message)
+    // 优先获取后端返回的具体错误信息
+    const errorMsg = error.response?.data?.message || error.message || '创建失败'
+    ElMessage.error(errorMsg)
   } finally {
     creating.value = false
   }
