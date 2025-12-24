@@ -197,3 +197,79 @@ export function updateJobRelation(id, data) {
         data
     })
 }
+
+/**
+ * 创建 Jenkins Job
+ * POST /api/jenkins/job/manage/
+ * 
+ * @param {Object} data 
+ * @param {string} data.name - Job 名称
+ * @param {string} [data.config_xml] - 配置 XML
+ * @returns {Promise<Object>}
+ */
+export function createJenkinsJob(data) {
+    return request({
+        url: '/api/jenkins/job/manage/',
+        method: 'post',
+        data
+    })
+}
+
+/**
+ * 编辑 Jenkins Job
+ * PUT /api/jenkins/job/manage/
+ * 
+ * 同步编辑 Jenkins 和本地数据库
+ * 
+ * @param {Object} data - 编辑数据
+ * @param {number} data.id - Job ID (必填)
+ * @param {string} [data.description] - Job 描述
+ * @param {string} [data.config_xml] - 配置 XML
+ * @param {boolean} [data.is_active] - 是否启用
+ * @param {number} [data.project] - 关联项目 ID
+ * @param {number} [data.environment] - 关联环境 ID
+ * @param {number} [data.plan] - 关联计划 ID
+ * @param {boolean} [data.force] - 强制保存（XML验证失败时）
+ * 
+ * @returns {Promise<{code: number, data: Object, message: string}>}
+ * @returns {number} return.code - 200 成功, 5004 XML无效
+ * 
+ * @example
+ * // 基础编辑
+ * await editJenkinsJob({
+ *   id: 1,
+ *   description: '更新描述',
+ *   is_active: true,
+ *   project: 5
+ * })
+ * 
+ * // 强制保存（XML验证失败后）
+ * await editJenkinsJob({
+ *   id: 1,
+ *   config_xml: '<project>...</project>',
+ *   force: true
+ * })
+ */
+export function editJenkinsJob(data) {
+    return request({
+        url: '/api/jenkins/job/manage/',
+        method: 'put',
+        data
+    })
+}
+
+/**
+ * 查询 Celery 任务状态
+ * GET /api/jenkins/task/{task_id}/status/
+ * 
+ * @param {string} taskId - 任务 ID
+ * @returns {Promise<{code: number, data: Object, message: string}>}
+ * @returns {string} return.data.status - 状态: PENDING/STARTED/SUCCESS/FAILURE
+ * @returns {Any} return.data.result - 任务结果
+ */
+export function getTaskStatus(taskId) {
+    return request({
+        url: `/api/jenkins/task/${taskId}/status/`,
+        method: 'get'
+    })
+}

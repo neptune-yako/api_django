@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "cronjob.apps.CronjobConfig",
     "bug.apps.BugConfig",
     'jenkins_integration.apps.JenkinsConfig',  # 添加jenkins应用
+    'test_report',  # 测试报告模块
 ]
 
 # 注册中间件
@@ -602,3 +603,14 @@ SIMPLEUI_CONFIG = {
 # JENKINS_URL = 'http://mg.morry.online/'
 # JENKINS_USERNAME = 'akko'
 # JENKINS_TOKEN = '11c0386c574f181a57a08776b21bb6ea06'
+
+# ==================== 本地配置导入 ====================
+# 导入本地配置文件 settings_local.py (如果存在)
+# settings_local.py 用于覆盖上面的默认配置（如数据库端口、Jenkins 配置等）
+# 此文件已加入 .gitignore，不会上传到 Git
+try:
+    from .settings_local import *
+    print("✓ 已加载本地配置文件: settings_local.py")
+except ImportError:
+    print("ℹ 未找到本地配置文件 settings_local.py，使用默认配置")
+    pass

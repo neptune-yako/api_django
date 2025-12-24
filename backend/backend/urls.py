@@ -68,4 +68,5 @@ urlpatterns = [
     path('', include('user.urls')),
 
     path('', include('jenkins_integration.urls')),  # 添加jenkins路由
+    path('api/test-report/', include('test_report.urls')),  # 测试报告模块路由
 ]

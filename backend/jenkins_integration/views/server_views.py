@@ -1,9 +1,12 @@
 from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.decorators import action
+from django.utils import timezone
+
 from ..utils import R, ResponseCode, ResponseMessage
 from ..models import JenkinsServer
 from ..serializers import JenkinsServerSerializer, JenkinsServerCreateSerializer
+from backend.pagination import MyPaginator
 import logging
 import traceback
 
@@ -56,6 +59,7 @@ class JenkinsServerViewSet(viewsets.ModelViewSet):
     Jenkins 服务器管理视图集 (CRUD)
     """
     queryset = JenkinsServer.objects.all().order_by('-create_time')
+    pagination_class = MyPaginator
     
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
@@ -118,8 +122,9 @@ class JenkinsServerViewSet(viewsets.ModelViewSet):
             if success:
                 logger.info(f"Jenkins 连接成功: {message}")
                 
-                # 更新服务器的连接状态
+                # 更新服务器的连接状态和检查时间
                 server.connection_status = 'connected'
+                server.last_check_time = timezone.now()
                 server.save(update_fields=['connection_status', 'last_check_time'])
                 
                 return R.success(
@@ -129,8 +134,9 @@ class JenkinsServerViewSet(viewsets.ModelViewSet):
             else:
                 logger.error(f"Jenkins 连接失败: {message}")
                 
-                # 更新服务器的连接状态为失败
+                # 更新服务器的连接状态为失败和检查时间
                 server.connection_status = 'failed'
+                server.last_check_time = timezone.now()
                 server.save(update_fields=['connection_status', 'last_check_time'])
                 
                 return R.jenkins_error(

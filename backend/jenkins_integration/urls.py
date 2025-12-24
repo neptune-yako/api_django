@@ -12,6 +12,7 @@ urlpatterns = [
     # Job 管理 API
     path('api/jenkins/jobs/', views.JenkinsJobsView.as_view(), name='jenkins_jobs'),
     path('api/jenkins/job/manage/', views.JenkinsJobManageView.as_view(), name='jenkins_job_manage'),
+    # path('api/jenkins/job/edit/', views.JenkinsJobEditView.as_view(), name='jenkins_job_edit'),  # 已合并到 manage
     path('api/jenkins/job/build/', views.JenkinsJobBuildView.as_view(), name='jenkins_job_build'),
     path('api/jenkins/job/validate/', views.JenkinsJobValidateView.as_view(), name='jenkins_job_validate'),
     
@@ -76,6 +77,8 @@ urlpatterns = [
     path('api/jenkins/nodes/<str:node_name>/config/', views.JenkinsNodeGetConfigView.as_view(), name='jenkins-node-config'),
     path('api/jenkins/nodes/<str:node_name>/ip/', views.JenkinsNodeUpdateIPView.as_view(), name='jenkins-node-update-ip'),
     
+    # 任务状态查询
+    path('api/jenkins/task/<str:task_id>/status/', views.TaskStatusView.as_view(), name='task-status'),
     # 获取节点详细信息
     path('api/jenkins/nodes/<str:node_name>/info/', views.JenkinsNodeInfoView.as_view(), name='jenkins-node-info'),
     

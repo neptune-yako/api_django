@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import http from '@/api/index'
-import jenkinsApi from '@/api/jenkins.js'
+import jenkinsApi from '@/api/jenkins/index.js'
 
 export const ProjectStore = defineStore('proStore', {
     // 数据
