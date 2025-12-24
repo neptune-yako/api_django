@@ -86,29 +86,81 @@ const http = ({ url, method, params, data }) => {
 
 // Jenkins服务器管理
 export function getServerList() {
-  return http({ url: '/jenkins/server/', method: 'get' })
+  return http({ url: '/api/jenkins/server/', method: 'get' })
+}
+
+export function getJenkinsServers(params) {
+  return http({ url: '/api/jenkins/server/', method: 'get', params })
+}
+
+export function addJenkinsServer(data) {
+  return http({ url: '/api/jenkins/server/', method: 'post', data })
+}
+
+export function updateJenkinsServer(id, data) {
+  return http({ url: `/api/jenkins/server/${id}/`, method: 'put', data })
+}
+
+export function deleteJenkinsServer(id) {
+  return http({ url: `/api/jenkins/server/${id}/`, method: 'delete' })
 }
 
 export function testConnection(id) {
-  return http({ url: `/jenkins/server/${id}/test_connection/`, method: 'post' })
+  return http({ url: `/api/jenkins/server/${id}/test_connection/`, method: 'post' })
+}
+
+export function testConnectionById(id) {
+  return http({ url: `/api/jenkins/server/${id}/test_connection/`, method: 'post' })
 }
 
 // Jenkins任务管理
 export function getJobList(params) {
-  return http({ url: '/jenkins/job/', method: 'get', params })
+  return http({ url: '/api/jenkins/pipeline/', method: 'get', params })
+}
+
+export function getJenkinsJobs(params) {
+  return http({ url: '/api/jenkins/pipeline/', method: 'get', params })
+}
+
+export function syncJenkinsJobs() {
+  return http({ url: '/api/jenkins/jobs/sync/', method: 'post' })
+}
+
+export function createJenkinsJob(data) {
+  return http({ url: '/api/jenkins/pipeline/', method: 'post', data })
+}
+
+export function getJenkinsJobDetail(jobId) {
+  return http({ url: `/api/jenkins/pipeline/${jobId}/`, method: 'get' })
+}
+
+export function editJenkinsJob(data) {
+  return http({ url: `/api/jenkins/pipeline/${data.id}/`, method: 'put', data })
+}
+
+export function deleteJenkinsJob(jobId) {
+  return http({ url: `/api/jenkins/pipeline/${jobId}/`, method: 'delete' })
 }
 
 export function triggerBuild(data) {
-  return http({ url: '/jenkins/job/trigger_build/', method: 'post', data })
+  return http({ url: '/api/jenkins/job/trigger_build/', method: 'post', data })
+}
+
+export function buildJenkinsJob(data) {
+  return http({ url: '/api/jenkins/job/build/', method: 'post', data })
+}
+
+export function getTaskStatus(taskId) {
+  return http({ url: `/api/jenkins/task/${taskId}/status/`, method: 'get' })
 }
 
 // 构建记录
 export function getBuildList(params) {
-  return http({ url: '/jenkins/build/', method: 'get', params })
+  return http({ url: '/api/jenkins/build/', method: 'get', params })
 }
 
 export function getAllureReport(params) {
-  return http({ url: '/jenkins/report/by_build/', method: 'get', params })
+  return http({ url: '/api/jenkins/report/by_build/', method: 'get', params })
 }
 
 // ==================== Jenkins节点管理 ====================
@@ -172,10 +224,25 @@ export function getCredentialsList() {
 
 // 默认导出
 export default {
+  // 服务器管理
   getServerList,
+  getJenkinsServers,
+  addJenkinsServer,
+  updateJenkinsServer,
+  deleteJenkinsServer,
   testConnection,
+  testConnectionById,
+  // 任务管理
   getJobList,
+  getJenkinsJobs,
+  syncJenkinsJobs,
+  createJenkinsJob,
+  getJenkinsJobDetail,
+  editJenkinsJob,
+  deleteJenkinsJob,
   triggerBuild,
+  buildJenkinsJob,
+  getTaskStatus,
   getBuildList,
   getAllureReport,
   // 节点管理
