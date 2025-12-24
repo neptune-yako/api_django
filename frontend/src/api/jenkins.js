@@ -127,7 +127,7 @@ export function syncJenkinsJobs() {
 }
 
 export function createJenkinsJob(data) {
-  return http({ url: '/api/jenkins/pipeline/', method: 'post', data })
+  return http({ url: '/api/jenkins/job/manage/', method: 'post', data })
 }
 
 export function getJenkinsJobDetail(jobId) {
@@ -135,7 +135,7 @@ export function getJenkinsJobDetail(jobId) {
 }
 
 export function editJenkinsJob(data) {
-  return http({ url: `/api/jenkins/pipeline/${data.id}/`, method: 'put', data })
+  return http({ url: '/api/jenkins/job/manage/', method: 'put', data })
 }
 
 export function deleteJenkinsJob(jobId) {

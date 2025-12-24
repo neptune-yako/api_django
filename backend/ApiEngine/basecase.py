@@ -245,8 +245,8 @@ class BaseTest(unittest.TestCase, CaseRunLog):
         for k, v in data['request'].items():
             if k in params_fields:
                 request_params[k] = v
-        # 设置默认超时时间为1秒
-        request_params.setdefault('timeout', 1)
+        # 设置默认超时时间为30秒（支持HTTPS和慢速网络）
+        request_params.setdefault('timeout', 30)
         # 请求地址(判断接口地址是不是http开头的，不是则在前面加上Env中的host)
         url = data.get('interface').get('url')
         if url.startswith("http://") or url.startswith("https://"):
