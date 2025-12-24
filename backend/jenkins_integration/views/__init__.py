@@ -1,5 +1,5 @@
 from .server_views import JenkinsTestView, JenkinsServerViewSet
-from .job_local_views import JenkinsJobViewSet, SyncJenkinsJobsView
+from .job_local_views import JenkinsJobViewSet, SyncJenkinsJobsView, CleanupJenkinsJobsView
 from .job_remote_views import (
     JenkinsJobsView, JenkinsJobValidateView,
     JenkinsJobCopyView, JenkinsJobToggleView, JenkinsJobBuildView

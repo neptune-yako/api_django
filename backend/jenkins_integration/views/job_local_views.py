@@ -99,3 +99,46 @@ class SyncJenkinsJobsView(APIView):
         except Exception as e:
             logger.error(f"同步 Jobs 视图异常: {str(e)}")
             return R.internal_error(str(e))
+
+
+class CleanupJenkinsJobsView(APIView):
+    """
+    清理失效的 Jenkins Jobs 视图
+    触发异步任务,删除本地存在但 Jenkins 服务器上已不存在的 Jobs
+    """
+    
+    def post(self, request):
+        try:
+            # 获取请求参数
+            server_id = request.data.get('server_id')
+            
+            # 参数校验
+            if not server_id:
+                return R.bad_request(message="请选择要清理的 Jenkins 服务器")
+            
+            # 验证服务器存在性
+            from ..models import JenkinsServer
+            try:
+                server = JenkinsServer.objects.get(id=server_id)
+            except JenkinsServer.DoesNotExist:
+                return R.error(message=f"服务器 ID [{server_id}] 不存在", code=ResponseCode.NOT_FOUND)
+            
+            # 验证连接状态
+            if server.connection_status != 'connected':
+                return R.error(
+                    message=f"服务器 [{server.name}] 连接状态为 {server.connection_status},无法清理",
+                    code=ResponseCode.BAD_REQUEST
+                )
+            
+            # 调用 Celery 异步任务
+            from ..tasks import cleanup_jenkins_jobs_task
+            task = cleanup_jenkins_jobs_task.delay(server_id=server_id)
+            
+            return R.success(
+                message=f"Jenkins Jobs 清理任务已启动 (服务器: {server.name})",
+                data={'task_id': task.id, 'server_name': server.name}
+            )
+                
+        except Exception as e:
+            logger.error(f"清理 Jobs 视图异常: {str(e)}")
+            return R.internal_error(str(e))

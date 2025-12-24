@@ -171,6 +171,11 @@ export function syncJenkinsJobs(data) {
   return http({ url: '/api/jenkins/jobs/sync/', method: 'post', data })
 }
 
+export function cleanupJenkinsJobs(data) {
+  return http({ url: '/api/jenkins/jobs/cleanup/', method: 'post', data })
+}
+
+
 export function createJenkinsJob(data) {
   return http({ url: '/api/jenkins/job/manage/', method: 'post', data })
 }

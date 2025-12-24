@@ -57,6 +57,14 @@
             >
               <el-icon class="el-icon--left"><Refresh /></el-icon>同步 Jobs
             </el-button>
+            <el-button 
+              type="warning" 
+              @click="handleCleanup" 
+              :loading="cleaning"
+              :disabled="!selectedServerId"
+            >
+              <el-icon class="el-icon--left"><Delete /></el-icon>清理失效 Jobs
+            </el-button>
           </div>
             <el-button type="primary" @click="handleCreate">
               <el-icon class="el-icon--left"><Plus /></el-icon>创建 Job
@@ -212,10 +220,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Refresh, VideoPlay, Edit, Plus } from '@element-plus/icons-vue'
+import { Search, Refresh, VideoPlay, Edit, Plus, Delete } from '@element-plus/icons-vue'
 import { 
   getJenkinsJobs, 
-  syncJenkinsJobs, 
+  syncJenkinsJobs,
+  cleanupJenkinsJobs,
   getTaskStatus,
   buildJenkinsJob 
 } from '@/api/jenkins'
@@ -239,6 +248,7 @@ const getJobTypeTagType = (jobType) => {
 // 状态
 const loading = ref(false)
 const syncing = ref(false)
+const cleaning = ref(false)  // 清理状态
 const selectedServerId = ref(null)  // 选中的服务器ID
 const tableData = ref([])
 const searchKeyword = ref('')
@@ -390,31 +400,113 @@ const handleSync = async () => {
   } catch (error) {
     console.error(error)
     // 错误已由拦截器处理
+    syncing.value = false
   }
 }
 
+// 清理失效任务
+const handleCleanup = async () => {
+  // 校验是否选择了服务器
+  if (!selectedServerId.value) {
+    ElMessage.warning('请先选择要清理的 Jenkins 服务器')
+    return
+  }
+  
+  // 查找选中的服务器对象
+  const selectedServer = serverList.value.find(s => s.id === selectedServerId.value)
+  
+  // 二次校验连接状态
+  if (selectedServer && selectedServer.connection_status !== 'connected') {
+    ElMessageBox.alert(
+      `服务器 "${selectedServer.name}" 连接状态为 ${selectedServer.connection_status},请先前往服务器管理页面测试连接`,
+      '无法清理',
+      {
+        confirmButtonText: '知道了',
+        type: 'warning'
+      }
+    )
+    return
+  }
+  
+  // 弹出确认对话框（重要！）
+  try {
+    await ElMessageBox.confirm(
+      `确定要清理服务器 "${selectedServer.name}" 的失效任务吗？\n\n此操作将删除本地数据库中存在，但 Jenkins 服务器上已不存在的所有任务。\n\n⚠️ 此操作不可恢复！`,
+      '确认清理',
+      {
+        confirmButtonText: '确定清理',
+        cancelButtonText: '取消',
+        type: 'warning',
+        dangerouslyUseHTMLString: false
+      }
+    )
+  } catch {
+    // 用户取消操作
+    return
+  }
+  
+  // 用户确认后，开始清理
+  cleaning.value = true
+  try {
+    const res = await cleanupJenkinsJobs({ server_id: selectedServerId.value })
+    const taskId = res.data.data.task_id
+    
+    if (taskId) {
+      const serverName = selectedServer?.name || '选中的服务器'
+      ElMessage.info(`正在清理 "${serverName}" 的失效任务...`)
+      pollTaskStatus(taskId, 'cleanup')  // 传递 'cleanup' 标识
+    } else {
+      ElMessage.warning('清理任务启动,但未返回任务ID')
+      cleaning.value = false
+    }
+  } catch (error) {
+    console.error(error)
+    // 错误已由拦截器处理
+    cleaning.value = false
+  }
+}
+
+
 // 轮询任务状态
-const pollTaskStatus = async (taskId) => {
+const pollTaskStatus = async (taskId, taskType = 'sync') => {
   const poll = async () => {
     try {
       const res = await getTaskStatus(taskId)
       const status = res.data.data.status
       
       if (status === 'SUCCESS') {
-        ElMessage.success('✅ Jenkins Job 同步完成，已自动刷新列表')
-        syncing.value = false
+        const successMsg = taskType === 'cleanup' 
+          ? '✅ Jenkins Job 清理完成，已自动刷新列表'
+          : '✅ Jenkins Job 同步完成，已自动刷新列表'
+        ElMessage.success(successMsg)
+        if (taskType === 'cleanup') {
+          cleaning.value = false
+        } else {
+          syncing.value = false
+        }
         fetchData() // 刷新列表
       } else if (status === 'FAILURE') {
         const errorMsg = res.data.data.result || '未知错误'
-        ElMessage.error(`❌ 同步失败: ${errorMsg}`)
-        syncing.value = false
+        const failMsg = taskType === 'cleanup'
+          ? `❌ 清理失败: ${errorMsg}`
+          : `❌ 同步失败: ${errorMsg}`
+        ElMessage.error(failMsg)
+        if (taskType === 'cleanup') {
+          cleaning.value = false
+        } else {
+          syncing.value = false
+        }
       } else {
         // 继续轮询 (PENDING, STARTED, RETRY)
         setTimeout(poll, 2000)
       }
     } catch (error) {
       console.error('查询任务状态失败:', error)
-      syncing.value = false
+      if (taskType === 'cleanup') {
+        cleaning.value = false
+      } else {
+        syncing.value = false
+      }
     }
   }
   

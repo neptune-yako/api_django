@@ -22,6 +22,9 @@ urlpatterns = [
     # Job 批量同步 (新)
     path('api/jenkins/jobs/sync/', views.SyncJenkinsJobsView.as_view(), name='sync_jenkins_jobs'),
     
+    # Job 清理失效 (新)
+    path('api/jenkins/jobs/cleanup/', views.CleanupJenkinsJobsView.as_view(), name='cleanup_jenkins_jobs'),
+    
     # 复制 Job
     path('api/jenkins/job/copy/', views.JenkinsJobCopyView.as_view(), name='jenkins-job-copy'),
     

@@ -83,6 +83,69 @@ class JenkinsSyncService:
 
 
     @staticmethod
+    def cleanup_jobs(server_id):
+        """
+        清理失效的 Jenkins Jobs (删除本地存在但 Jenkins 服务器上已不存在的 Jobs)
+        
+        Args:
+            server_id: Jenkins 服务器 ID (必填)
+            
+        Returns:
+            tuple: (是否成功, 消息, 删除数量)
+        """
+        try:
+            # 1. 获取指定的 Jenkins Server
+            try:
+                server = JenkinsServer.objects.get(id=server_id)
+            except JenkinsServer.DoesNotExist:
+                return False, f"服务器 ID [{server_id}] 不存在", 0
+            
+            # 2. 校验连接状态
+            if server.connection_status != 'connected':
+                return False, f"服务器 [{server.name}] 连接状态为 {server.connection_status},无法清理", 0
+            
+            # 3. 从 Jenkins 获取远程 Jobs 名称列表
+            from ..jenkins_client import get_all_jobs_by_server
+            success, msg, jobs_data = get_all_jobs_by_server(server)
+            if not success:
+                return False, f"获取远程 Jobs 失败: {msg}", 0
+            
+            # 提取远程 Job 名称集合
+            remote_job_names = {job.get('name') for job in jobs_data if job.get('name')}
+            
+            # 4. 从数据库获取本地 Jobs 名称列表
+            local_jobs = JenkinsJob.objects.filter(server=server)
+            local_job_names = {job.name for job in local_jobs}
+            
+            # 5. 计算差集：本地有但远程没有的 = 需要删除的
+            jobs_to_delete = local_job_names - remote_job_names
+            
+            if not jobs_to_delete:
+                logger.info(f"服务器 [{server.name}] 没有需要清理的失效任务")
+                return True, "没有需要清理的失效任务", 0
+            
+            # 6. 执行删除
+            deleted_count = 0
+            with transaction.atomic():
+                for job_name in jobs_to_delete:
+                    deleted = JenkinsJob.objects.filter(
+                        server=server,
+                        name=job_name
+                    ).delete()
+                    if deleted[0] > 0:
+                        deleted_count += 1
+                        logger.info(f"删除失效任务: {job_name}")
+            
+            logger.info(f"从服务器 [{server.name}] 清理完成，共删除 {deleted_count} 个失效任务")
+            return True, f"成功清理 {deleted_count} 个失效任务", deleted_count
+
+        except Exception as e:
+            error_msg = f"清理失效 Jobs 异常: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg, 0
+
+
+    @staticmethod
     def sync_nodes(project_id, username='jenkins_sync'):
         """
         同步 Jenkins 节点到项目环境
