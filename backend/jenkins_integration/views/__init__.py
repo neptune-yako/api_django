@@ -10,4 +10,9 @@ from .task_views import TaskStatusView
 from .template_views import JenkinsTemplateListView, JenkinsTemplateDetailView
 from .build_views import JenkinsBuildLatestView, JenkinsBuildAllureView
 from .allure_views import AllureProxyView, SyncBuildResultView
-from .node_views import JenkinsNodesListView, JenkinsNodeGetConfigView, JenkinsNodeUpdateIPView
+from .node_views import (
+    JenkinsNodesListView, JenkinsNodeGetConfigView, JenkinsNodeUpdateIPView,
+    JenkinsNodeCreateView, JenkinsNodeDeleteView, JenkinsNodeInfoView,
+    JenkinsNodeToggleView, JenkinsNodeReconnectView, JenkinsNodeLabelsView,
+    JenkinsCredentialsListView, JenkinsNodeSyncView, JenkinsNodesSyncFromJenkinsView
+)

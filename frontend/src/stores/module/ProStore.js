@@ -76,10 +76,11 @@ export const ProjectStore = defineStore('proStore', {
                 this.planList = response.data
             }
         },
-        // 获取Jenkins节点列表
-        async getJenkinsNodes() {
+        // 获取Jenkins节点列表（支持自动同步到项目环境）
+        async getJenkinsNodes(autoSync = false) {
             try {
-                const response = await jenkinsApi.getNodesList()
+                const params = {}
+                const response = await jenkinsApi.getNodesList(params)
                 if (response.status === 200 && response.data.code === 200) {
                     this.jenkinsNodes = response.data.data
                 }
