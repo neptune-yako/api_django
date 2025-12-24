@@ -258,25 +258,24 @@ const handleDelete = (row) => {
 const handleTestConnection = async (row) => {
   row.testing = true
   try {
-    // 使用新的 API: 通过服务器 ID 测试连接
-    // 后端会从数据库获取完整凭据 (包括 token)
     const res = await testConnectionById(row.id)
     
-    // 注意: axios 拦截器返回的是 response 对象
-    // 真正的数据在 response.data 中
+    // 处理成功和业务失败
     if (res.data.code === 200) {
       ElMessage.success('连接成功!')
     } else {
+      // 后端返回的业务错误（code !== 200）
       ElMessage.error(res.data.message || '连接失败')
     }
     
-    // 🔥 修复：无论成功或失败，都刷新列表以更新连接状态
+    // 刷新列表以更新连接状态
     fetchData()
     
   } catch (error) {
-    ElMessage.error('连接测试失败')
+    // HTTP 错误（400, 500 等）
+    // error.message 已被拦截器增强为后端的具体错误信息
+    ElMessage.error('连接测试失败: ' + error.message)
     console.error('测试连接错误:', error)
-    // 🔥 异常时也刷新
     fetchData()
   } finally {
     row.testing = false

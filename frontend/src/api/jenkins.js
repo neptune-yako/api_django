@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { UserStore } from '@/stores/module/UserStore'
-import { ElNotification } from 'element-plus'
+import { ElNotification, ElMessage } from 'element-plus'
 import router from "@/router/index.js"
 
 // 创建 Jenkins 专用的 axios 实例，增加超时时间
@@ -50,6 +50,44 @@ jenkinsHttp.interceptors.response.use(
     return response
   },
   function (error) {
+    // ===== 1. 错误信息增强（总是执行）=====
+    // 将后端返回的具体错误信息提取到 error.message
+    // 这样调用方可以直接使用 error.message，而不是 "Request failed with status code 400"
+    if (error.response?.data) {
+      const backendMessage = error.response.data.message || error.response.data.detail
+      if (backendMessage) {
+        error.message = backendMessage
+      }
+    }
+
+    // ===== 2. 可选的全局错误提示 =====
+    // 如果 API 调用时设置了 skipGlobalErrorHandler: true，则跳过自动提示
+    // 否则自动弹窗显示错误
+    if (!error.config?.skipGlobalErrorHandler) {
+      if (error.response) {
+        const status = error.response.status
+        const message = error.message || '请求失败'
+
+        // 根据状态码显示不同类型的提示
+        if (status === 401) {
+          ElNotification({
+            title: '未授权',
+            message: '登录已过期，请重新登录',
+            type: 'error'
+          })
+        } else if (status === 403) {
+          ElMessage.error('没有权限执行此操作')
+        } else if (status >= 400 && status < 500) {
+          // 客户端错误（400, 404 等）
+          ElMessage.error(message)
+        } else if (status >= 500) {
+          // 服务器错误
+          ElMessage.error(message || '服务器内部错误')
+        }
+      }
+    }
+
+    // ===== 3. 原有的超时和网络错误处理 =====
     if (error.code === 'ECONNABORTED') {
       ElNotification({
         title: '请求超时',
@@ -68,6 +106,7 @@ jenkinsHttp.interceptors.response.use(
       })
       return Promise.reject(error)
     }
+
     return Promise.reject(error)
   }
 )
@@ -110,7 +149,13 @@ export function testConnection(id) {
 }
 
 export function testConnectionById(id) {
-  return http({ url: `/api/jenkins/server/${id}/test_connection/`, method: 'post' })
+  // 修复：后端路径为 test-connection (kebab-case)
+  // skipGlobalErrorHandler: 告诉拦截器不要自动弹窗，组件中有自定义错误处理
+  return http({
+    url: `/api/jenkins/server/${id}/test-connection/`,
+    method: 'post',
+    skipGlobalErrorHandler: true
+  })
 }
 
 // Jenkins任务管理
