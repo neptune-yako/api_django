@@ -34,14 +34,22 @@
       </el-form-item>
       
       <el-form-item label="Job 名称" prop="name">
-        <el-input 
-          v-model="form.name" 
-          placeholder="输入 Job 名称（英文、数字、下划线）" 
+        <el-input
+          v-model="form.name"
+          placeholder="输入 Job 名称（英文、数字、下划线）"
           maxlength="100"
           show-word-limit
-        />
+        >
+          <template #append>
+            <el-button
+              @click="generateTimestampName"
+              :icon="RefreshRight"
+              title="生成时间戳名称"
+            />
+          </template>
+        </el-input>
         <span style="font-size: 12px; color: #909399; display: block; margin-top: 5px">
-          ⚠️ Job 名称创建后不可修改
+          ⚠️ Job 名称创建后不可修改 | 点击右侧按钮生成时间戳名称
         </span>
       </el-form-item>
       
@@ -134,10 +142,10 @@
       </el-form-item>
       
       <el-form-item label="测试计划">
-        <el-select 
-          v-model="form.plan" 
-          clearable 
-          placeholder="请先选择项目" 
+        <el-select
+          v-model="form.plan"
+          clearable
+          placeholder="请先选择项目"
           style="width: 100%"
           :disabled="!form.project"
         >
@@ -149,51 +157,116 @@
           />
         </el-select>
       </el-form-item>
-      
-      <el-form-item label="执行节点" v-if="selectedEnvironmentNode">
-        <el-tag type="success" size="large">
-          {{ selectedEnvironmentNode.name }}
-        </el-tag>
-        <span style="font-size: 12px; color: #909399; margin-left: 10px">
-          💡 自动从选择的测试环境获取，节点 IP: {{ selectedEnvironmentNode.ip_address || 'N/A' }}
-        </span>
-      </el-form-item>
-      
-      <!-- 高级配置 -->
-      <el-divider content-position="left">配置 XML</el-divider>
-      
-      <el-form-item>
-        <VAceEditor
-          ref="aceEditorRef"
-          v-model:value="form.config_xml"
-          lang="xml"
-          theme="chrome"
-          :options="{
-            fontSize: 14,
-            showPrintMargin: false,
-            showGutter: true,
-            highlightActiveLine: true,
-            enableBasicAutocompletion: true,
-            enableLiveAutocompletion: true,
-            enableSnippets: true,
-            tabSize: 2,
-            wrap: true,
-            useWorker: true
-          }"
-          style="height: 400px; width: 100%; border: 1px solid #dcdfe6; border-radius: 4px"
-          @init="handleEditorInit"
+
+      <!-- 已选择的测试环境信息 -->
+      <template v-if="selectedEnvironmentNodes.length > 0">
+        <el-divider content-position="left">执行节点</el-divider>
+        <el-form-item>
+          <div v-for="envNode in selectedEnvironmentNodes" :key="envNode.id" style="margin-bottom: 10px">
+            <el-tag type="success" size="large">
+              {{ envNode.node.name }}
+            </el-tag>
+            <span style="font-size: 12px; color: #909399; margin-left: 10px">
+              环境: {{ envNode.env.name }}
+            </span>
+          </div>
+          <span style="font-size: 12px; color: #909399; display: block; margin-top: 5px">
+            💡 环境名称即为 Jenkins 节点名称，共 {{ selectedEnvironmentNodes.length }} 个
+          </span>
+        </el-form-item>
+      </template>
+
+      <!-- Pipeline 配置（仅 Pipeline 类型显示） -->
+      <template v-if="form.job_type === 'Pipeline'">
+        <el-divider content-position="left">
+          Pipeline 配置
+          <el-switch
+            v-model="form.use_visual_builder"
+            active-text="可视化"
+            inactive-text="高级"
+            style="margin-left: 20px"
+            @change="handleBuilderModeChange"
+          />
+        </el-divider>
+
+        <!-- 可视化构建器 -->
+        <PipelineBuilder
+          v-if="form.use_visual_builder"
+          :nodes="selectedEnvironmentNodes.map(e => e.node)"
+          :environments="selectedEnvironmentNames"
+          @update:config="handlePipelineConfigChange"
         />
-        <el-alert
-          v-if="xmlValidation.error"
-          type="warning"
-          :title="xmlValidation.error"
-          :closable="false"
-          style="margin-top: 10px"
-        />
-        <span style="font-size: 12px; color: #909399; display: block; margin-top: 5px">
-          💡 XML 会根据选择的类型自动加载模板，您可以在此基础上修改
-        </span>
-      </el-form-item>
+
+        <!-- 高级模式：XML 编辑器 -->
+        <template v-else>
+          <el-form-item>
+            <VAceEditor
+              ref="aceEditorRef"
+              v-model:value="form.config_xml"
+              lang="xml"
+              theme="chrome"
+              :options="{
+                fontSize: 14,
+                showPrintMargin: false,
+                showGutter: true,
+                highlightActiveLine: true,
+                enableBasicAutocompletion: true,
+                enableLiveAutocompletion: true,
+                enableSnippets: true,
+                tabSize: 2,
+                wrap: true,
+                useWorker: true
+              }"
+              style="height: 400px; width: 100%; border: 1px solid #dcdfe6; border-radius: 4px"
+              @init="handleEditorInit"
+            />
+            <el-alert
+              v-if="xmlValidation.error"
+              type="warning"
+              :title="xmlValidation.error"
+              :closable="false"
+              style="margin-top: 10px"
+            />
+          </el-form-item>
+        </template>
+      </template>
+
+      <!-- 非 Pipeline 类型的 XML 编辑器 -->
+      <template v-if="form.job_type !== 'Pipeline'">
+        <el-divider content-position="left">配置 XML</el-divider>
+        <el-form-item>
+          <VAceEditor
+            ref="aceEditorRef"
+            v-model:value="form.config_xml"
+            lang="xml"
+            theme="chrome"
+            :options="{
+              fontSize: 14,
+              showPrintMargin: false,
+              showGutter: true,
+              highlightActiveLine: true,
+              enableBasicAutocompletion: true,
+              enableLiveAutocompletion: true,
+              enableSnippets: true,
+              tabSize: 2,
+              wrap: true,
+              useWorker: true
+            }"
+            style="height: 400px; width: 100%; border: 1px solid #dcdfe6; border-radius: 4px"
+            @init="handleEditorInit"
+          />
+          <el-alert
+            v-if="xmlValidation.error"
+            type="warning"
+            :title="xmlValidation.error"
+            :closable="false"
+            style="margin-top: 10px"
+          />
+          <span style="font-size: 12px; color: #909399; display: block; margin-top: 5px">
+            💡 XML 会根据选择的类型自动加载模板，您可以在此基础上修改
+          </span>
+        </el-form-item>
+      </template>
     </el-form>
     
     <template #footer>
@@ -213,6 +286,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { RefreshRight } from '@element-plus/icons-vue'
 import { VAceEditor } from 'vue3-ace-editor'
 import ace from 'ace-builds'
 import 'ace-builds/src-noconflict/mode-xml'
@@ -226,6 +300,9 @@ import { createJenkinsJob } from '@/api/jenkins'
 import { getJenkinsTemplateDetail } from '@/api/jenkins/template'
 import { useJobFormOptions } from '@/composables/useJobFormOptions'
 import http from '@/api/index'
+
+// 导入 PipelineBuilder 组件
+import PipelineBuilder from './components/PipelineBuilder.vue'
 
 // Props & Emits
 const props = defineProps({
@@ -254,10 +331,17 @@ const form = ref({
   is_active: true,
   config_xml: '',
   project: null,
-  environments: [],  // 改为数组
+  environments: [],
   plan: null,
-  target_node: null  // 新增:目标节点
+  target_node: null,
+  target_nodes: [],      // 新增：多节点选择
+  multi_node_mode: 'parallel',  // 新增：多节点模式
+  pipeline_config: {},   // 新增：Pipeline 可视化配置
+  use_visual_builder: true  // 新增：使用可视化构建器
 })
+
+// Pipeline 配置
+const pipelineConfig = ref({})
 
 // 表单验证
 const rules = {
@@ -311,16 +395,60 @@ const selectedEnvironmentNode = computed(() => {
 // 节点列表
 const nodeList = ref([])
 
-// 加载节点列表
+// 加载节点列表（保留用于其他功能）
 const loadNodes = async () => {
   try {
     const res = await http.get('/api/jenkins/nodes/')
     if (res.code === 200) {
-      // 只显示在线的节点
       nodeList.value = (res.data || []).filter(node => node.is_online)
     }
   } catch (error) {
     console.error('加载节点列表失败:', error)
+  }
+}
+
+// 计算从测试环境获取的执行节点
+const selectedEnvironmentNodes = computed(() => {
+  if (!form.value.environments || form.value.environments.length === 0) {
+    return []
+  }
+
+  // 从选择的环境中获取节点信息
+  const result = form.value.environments.map(envId => {
+    const env = environmentList.value.find(e => e.id === envId)
+    // 环境名称本身就是节点名称
+    return {
+      id: envId,
+      env: env,
+      node: {
+        name: env.name,
+        display_name: env.name
+      }
+    }
+  })
+
+  console.log('selectedEnvironmentNodes (环境即节点):', result)
+  return result
+})
+
+// 获取环境名称列表（用于传递给后端）
+const selectedEnvironmentNames = computed(() => {
+  return selectedEnvironmentNodes.value.map(item => item.env.name)
+})
+
+// Pipeline 配置变更处理
+const handlePipelineConfigChange = (config) => {
+  form.value.pipeline_config = config
+  console.log('Pipeline 配置更新:', config)
+}
+
+// 新增：构建器模式切换处理
+const handleBuilderModeChange = (useVisual) => {
+  if (!useVisual) {
+    // 切换到高级模式，加载默认模板
+    loadTemplateXml(form.value.job_type).then(template => {
+      form.value.config_xml = template
+    })
   }
 }
 
@@ -425,20 +553,29 @@ watch(dialogVisible, async (visible) => {
       is_active: true,
       config_xml: '',
       project: null,
-      environments: [],  // 改为空数组
+      environments: [],
       plan: null,
-      target_node: null  // 重置节点
+      target_node: null,
+      target_nodes: [],
+      multi_node_mode: 'parallel',
+      pipeline_config: {},
+      use_visual_builder: true
     }
-    
+
     forceCreate = false
     xmlValidation.value = { valid: true, error: '' }
-    
+
     // 加载选项
     loadAllOptions()
-    
-    // 加载默认模板
-    const template = await loadTemplateXml('Pipeline')
-    form.value.config_xml = template
+
+    // 加载节点列表
+    await loadNodes()
+
+    // 如果使用可视化构建器，不需要加载模板
+    if (!form.value.use_visual_builder) {
+      const template = await loadTemplateXml('Pipeline')
+      form.value.config_xml = template
+    }
   }
 })
 
@@ -517,20 +654,38 @@ const handleCreate = async () => {
   // 3. 发送请求
   try {
     creating.value = true
-    
-    const res = await createJenkinsJob({
+
+    // 构建请求 payload
+    const payload = {
       server: form.value.server,
       name: form.value.name,
       job_type: form.value.job_type,
       description: form.value.description,
-      config_xml: form.value.config_xml,
       is_active: form.value.is_active,
       project: form.value.project || undefined,
-      environments: form.value.environments.length > 0 ? form.value.environments : undefined,  // 修改
+      environments: form.value.environments.length > 0 ? form.value.environments : undefined,
       plan: form.value.plan || undefined,
-      target_node: selectedEnvironmentNode.value?.id || undefined,  // 使用环境关联的节点
       force: forceCreate
-    })
+    }
+
+    // 根据 Pipeline 类型和构建器模式处理配置
+    if (form.value.job_type === 'Pipeline') {
+      // 使用可视化构建器或高级模式
+      payload.use_visual_builder = form.value.use_visual_builder
+
+      if (form.value.use_visual_builder) {
+        // 可视化模式：发送 pipeline_config，不发送 config_xml
+        payload.pipeline_config = form.value.pipeline_config
+      } else {
+        // 高级模式：发送 config_xml
+        payload.config_xml = form.value.config_xml
+      }
+    } else {
+      // 非 Pipeline 类型：发送 config_xml
+      payload.config_xml = form.value.config_xml
+    }
+
+    const res = await createJenkinsJob(payload)
     
     // 4. 处理响应
     if (res.data.code === 200) {
@@ -584,6 +739,19 @@ const handleXmlError = (errors) => {
 const handleCancel = () => {
   dialogVisible.value = false
   forceCreate = false
+}
+
+// 生成时间戳名称
+const generateTimestampName = () => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const hour = String(now.getHours()).padStart(2, '0')
+  const minute = String(now.getMinutes()).padStart(2, '0')
+
+  form.value.name = `${year}${month}${day}-${hour}${minute}`
+  ElMessage.success(`已生成时间戳名称: ${form.value.name}`)
 }
 </script>
 
