@@ -22,13 +22,17 @@ const props = defineProps({
 
 const tagType = computed(() => {
   const map = props.type === 'connection' ? CONNECTION_STATUS_MAP : BUILD_STATUS_MAP
-  const item = map[props.status] || map.unknown || { type: 'info' }
+  // 处理空字符串和null，统一转换为空字符串进行映射
+  const status = props.status || ''
+  const item = map[status] || map.unknown || { type: 'info' }
   return item.type
 })
 
 const tagLabel = computed(() => {
   const map = props.type === 'connection' ? CONNECTION_STATUS_MAP : BUILD_STATUS_MAP
-  const item = map[props.status] || map.unknown || { label: props.status }
+  // 处理空字符串和null，统一转换为空字符串进行映射
+  const status = props.status || ''
+  const item = map[status] || map.unknown || { label: '未知' }
   return item.label
 })
 </script>

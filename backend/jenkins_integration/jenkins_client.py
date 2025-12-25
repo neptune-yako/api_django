@@ -135,17 +135,34 @@ def get_job_detail(job_name):
             config_xml = config_resp.text
             
         # 组装返回数据
-        # 组装返回数据
         last_build = job_data.get('lastBuild') or {}
+        # 改进：如果result为None，检查是否正在构建或排队中
+        build_status = last_build.get('result') or ''
+        if not build_status and (job_data.get('inQueue') or job_data.get('building')):
+            build_status = 'BUILDING'
+        
+        # 转换timestamp（毫秒）为datetime
+        last_build_time = None
+        timestamp = last_build.get('timestamp')
+        if timestamp:
+            from datetime import datetime
+            last_build_time = datetime.fromtimestamp(timestamp / 1000)
+        
         result = {
             'description': job_data.get('description'),
             'is_buildable': job_data.get('buildable', True),
             'config_xml': config_xml,
             'last_build_number': last_build.get('number'),
-            'last_build_status': last_build.get('result') or '',
-            # timestamp 需要转换，暂时先不做
+            'last_build_status': build_status,
+            'last_build_time': last_build_time,
         }
         
+        # 记录获取到的构建状态
+        logger.debug(
+            f"Job [{job_name}] lastBuild信息 - number: {last_build.get('number')}, "
+            f"result: {last_build.get('result')}, timestamp: {timestamp}, "
+            f"最终状态: {build_status}, 构建时间: {last_build_time}"
+        )
         
         return True, "获取成功", result
 
@@ -225,13 +242,33 @@ def get_job_detail_by_server(server, job_name):
             
         # 组装返回数据
         last_build = job_data.get('lastBuild') or {}
+        # 改进：如果result为None，检查是否正在构建或排队中
+        build_status = last_build.get('result') or ''
+        if not build_status and (job_data.get('inQueue') or job_data.get('building')):
+            build_status = 'BUILDING'
+        
+        # 转换timestamp（毫秒）为datetime
+        last_build_time = None
+        timestamp = last_build.get('timestamp')
+        if timestamp:
+            from datetime import datetime
+            last_build_time = datetime.fromtimestamp(timestamp / 1000)
+        
         result = {
             'description': job_data.get('description'),
             'is_buildable': job_data.get('buildable', True),
             'config_xml': config_xml,
             'last_build_number': last_build.get('number'),
-            'last_build_status': last_build.get('result') or '',
+            'last_build_status': build_status,
+            'last_build_time': last_build_time,
         }
+        
+        # 记录获取到的构建状态
+        logger.debug(
+            f"Job [{job_name}] (服务器: {server.name}) lastBuild信息 - number: {last_build.get('number')}, "
+            f"result: {last_build.get('result')}, timestamp: {timestamp}, "
+            f"最终状态: {build_status}, 构建时间: {last_build_time}"
+        )
         
         return True, "获取成功", result
 

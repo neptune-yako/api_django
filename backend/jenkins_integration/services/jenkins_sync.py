@@ -66,6 +66,14 @@ class JenkinsSyncService:
                     defaults['is_buildable'] = detail_data.get('is_buildable', True)
                     defaults['last_build_number'] = detail_data.get('last_build_number')
                     defaults['last_build_status'] = detail_data.get('last_build_status', '')
+                    defaults['last_build_time'] = detail_data.get('last_build_time')
+                    
+                    # 记录同步的构建状态
+                    logger.info(
+                        f"同步Job [{job_name}] - 构建编号: {defaults.get('last_build_number') or '无'}, "
+                        f"构建状态: {defaults.get('last_build_status') or '未构建'}, "
+                        f"构建时间: {defaults.get('last_build_time') or '无'}"
+                    )
                 
                 # 4.2 存入数据库
                 with transaction.atomic():
