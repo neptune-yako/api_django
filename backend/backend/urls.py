@@ -69,4 +69,5 @@ urlpatterns = [
 
     path('', include('jenkins_integration.urls')),  # 添加jenkins路由
     path('api/test-report/', include('test_report.urls')),  # 测试报告模块路由
+    path('api/test-sandbox/', include('test_django.urls')), # 测试沙箱模块路由
 ]
