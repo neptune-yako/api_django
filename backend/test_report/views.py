@@ -53,3 +53,258 @@ class SyncAllureReportView(APIView):
         except Exception as e:
             logger.error(f"[TestReport] Sync API Error: {str(e)}")
             return R.internal_error(str(e))
+
+
+class SyncJobBuildsView(APIView):
+    """
+    批量同步 Job 构建报告接口
+    POST /api/test-report/sync-job/
+    
+    Payload:
+    {
+        "job_name": "a-test-Pipeline",
+        "start_build": 1,        // 可选，默认 1
+        "end_build": 100         // 可选，默认为最新构建号
+    }
+    """
+    def post(self, request):
+        job_name = request.data.get('job_name')
+        start_build = request.data.get('start_build', 1)
+        end_build = request.data.get('end_build')
+        
+        # 1. 参数校验
+        if not job_name:
+            return R.bad_request("缺少 job_name 参数")
+        
+        try:
+            # 2. 查询 JenkinsJob
+            job = JenkinsJob.objects.filter(name=job_name).first()
+            if not job:
+                return R.error(
+                    code=ResponseCode.JENKINS_JOB_NOT_FOUND,
+                    message=f"Job '{job_name}' 不存在"
+                )
+            
+            # 3. 如果 end_build 未指定，获取最新构建号
+            if not end_build:
+                from jenkins_integration.jenkins_client import get_job_detail_by_server
+                
+                # 获取 Jenkins Server 配置
+                server = job.server
+                if not server:
+                    return R.error(message=f"Job '{job_name}' 未关联 Jenkins Server")
+                
+                # 调用 API 获取 Job 详情
+                success, message, job_detail = get_job_detail_by_server(server, job.name)
+                
+                if success and job_detail and job_detail.get('last_build_number'):
+                    end_build = job_detail['last_build_number']
+                    logger.info(f"[TestReport] 自动获取最新构建号: {end_build}")
+                else:
+                    # 回退方案：使用数据库中的 last_build_number
+                    if job.last_build_number:
+                        end_build = job.last_build_number
+                        logger.warning(f"[TestReport] Jenkins API 获取失败，使用数据库值: {end_build}")
+                    else:
+                        return R.error(
+                            message=f"无法获取 Job '{job_name}' 的最新构建号，请手动指定 end_build 参数"
+                        )
+            
+            # 4. 启动 Celery 异步任务
+            from .tasks import sync_job_builds_task
+            task = sync_job_builds_task.delay(
+                job.id, int(start_build), int(end_build)
+            )
+            
+            total_builds = int(end_build) - int(start_build) + 1
+            
+            return R.success(
+                message=f"批量同步任务已启动 (Job: {job_name})",
+                data={
+                    'task_id': task.id,
+                    'job_name': job_name,
+                    'total_builds': total_builds,
+                    'status': 'PENDING'
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"[TestReport] 启动批量同步任务失败: {str(e)}")
+            return R.internal_error(str(e))
+
+
+class TaskStatusView(APIView):
+    """
+    查询任务状态接口
+    GET /api/test-report/task-status/{task_id}/
+    """
+    def get(self, request, task_id):
+        from celery.result import AsyncResult
+        
+        try:
+            task = AsyncResult(task_id)
+            
+            response_data = {
+                'task_id': task_id,
+                'status': task.state,
+            }
+            
+            if task.state == 'PROGRESS':
+                # 任务进行中，返回进度信息
+                meta = task.info or {}
+                response_data.update(meta)
+                
+            elif task.state == 'SUCCESS':
+                # 任务完成，返回结果
+                result = task.result or {}
+                response_data.update(result)
+                
+            elif task.state == 'FAILURE':
+                # 任务失败，返回错误
+                response_data['error'] = str(task.info)
+            
+            return R.success(data=response_data)
+            
+        except Exception as e:
+            logger.error(f"[TestReport] 查询任务状态失败: {str(e)}")
+            return R.internal_error(str(e))
+
+
+class TestExecutionListView(APIView):
+    """
+    查询测试执行列表接口
+    GET /api/test-report/executions/
+    
+    Query Params:
+    - job_id: 按 Job 筛选（可选）
+    - page: 页码（默认 1）
+    - size: 每页数量（默认 20）
+    - start_date: 开始日期（可选）
+    - end_date: 结束日期（可选）
+    """
+    def get(self, request):
+        from .models import TestExecution
+        from backend.pagination import MyPaginator
+        
+        try:
+            # 1. 获取查询参数
+            server_id = request.query_params.get('server_id')
+            job_id = request.query_params.get('job_id')
+            start_date = request.query_params.get('start_date')
+            end_date = request.query_params.get('end_date')
+            
+            # 调试日志
+            logger.info(f"[TestReport] 查询参数 - server_id: {server_id}, job_id: {job_id}, start_date: {start_date}, end_date: {end_date}")
+            
+            # 2. 使用自定义 Manager 进行链式查询
+            queryset = (TestExecution.objects
+                        .filter_by_server(server_id)
+                        .filter_by_job(job_id)
+                        .filter_by_date_range(start_date, end_date)
+                        .order_by('-created_at'))
+
+            
+            # 3. 分页
+            paginator = MyPaginator()
+            page = paginator.paginate_queryset(queryset, request)
+            
+            # 4. 序列化数据
+            items = []
+            for execution in page:
+                items.append({
+                    'id': execution.id,
+                    'timestamp': execution.timestamp,
+                    'report_title': execution.report_title,
+                    'job_name': execution.job.name if execution.job else None,
+                    'total_cases': execution.total_cases,
+                    'passed_cases': execution.passed_cases,
+                    'failed_cases': execution.failed_cases,
+                    'pass_rate': float(execution.pass_rate),
+                    'execution_time': execution.execution_time,
+                    'status': execution.status,
+                    'created_at': execution.created_at.isoformat()
+                })
+            
+            return paginator.get_paginated_response(items)
+            
+        except Exception as e:
+            logger.error(f"[TestReport] 查询执行列表失败: {str(e)}")
+            return R.internal_error(str(e))
+
+
+class TestExecutionDetailView(APIView):
+    """
+    查询测试执行详情接口
+    GET /api/test-report/executions/{execution_id}/
+    """
+    def get(self, request, execution_id):
+        from .models import TestExecution
+        
+        try:
+            # 1. 查询 TestExecution
+            execution = TestExecution.objects.prefetch_related(
+                'suites', 'categories', 'scenarios'
+            ).get(id=execution_id)
+            
+            # 2. 序列化数据
+            data = {
+                'execution': {
+                    'id': execution.id,
+                    'timestamp': execution.timestamp,
+                    'report_title': execution.report_title,
+                    'job_name': execution.job.name if execution.job else None,
+                    'total_cases': execution.total_cases,
+                    'passed_cases': execution.passed_cases,
+                    'failed_cases': execution.failed_cases,
+                    'skipped_cases': execution.skipped_cases,
+                    'broken_cases': execution.broken_cases,
+                    'unknown_cases': execution.unknown_cases,
+                    'pass_rate': float(execution.pass_rate),
+                    'execution_time': execution.execution_time,
+                    'start_time': execution.start_time.isoformat() if execution.start_time else None,
+                    'end_time': execution.end_time.isoformat() if execution.end_time else None,
+                    'status': execution.status,
+                    'created_at': execution.created_at.isoformat()
+                },
+                'suites': [
+                    {
+                        'suite_name': suite.suite_name,
+                        'total_cases': suite.total_cases,
+                        'passed_cases': suite.passed_cases,
+                        'failed_cases': suite.failed_cases,
+                        'pass_rate': float(suite.pass_rate),
+                        'duration_seconds': float(suite.duration_seconds)
+                    }
+                    for suite in execution.suites.all()
+                ],
+                'categories': [
+                    {
+                        'category_name': cat.category_name,
+                        'count': cat.count,
+                        'severity': cat.severity,
+                        'description': cat.description
+                    }
+                    for cat in execution.categories.all()
+                ],
+                'scenarios': [
+                    {
+                        'scenario_name': scn.scenario_name,
+                        'total': scn.total,
+                        'passed': scn.passed,
+                        'failed': scn.failed,
+                        'pass_rate': float(scn.pass_rate)
+                    }
+                    for scn in execution.scenarios.all()
+                ]
+            }
+            
+            return R.success(data=data)
+            
+        except TestExecution.DoesNotExist:
+            return R.error(
+                code=ResponseCode.NOT_FOUND,
+                message=f"Execution ID [{execution_id}] 不存在"
+            )
+        except Exception as e:
+            logger.error(f"[TestReport] 查询执行详情失败: {str(e)}")
+            return R.internal_error(str(e))
