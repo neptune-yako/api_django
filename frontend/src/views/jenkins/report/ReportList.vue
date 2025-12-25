@@ -289,11 +289,6 @@ const handleDateChange = () => {
 const fetchData = async () => {
   loading.value = true
   try {
-    // 调试日志
-    console.log('[ReportList] filters:', filters.value)
-    console.log('[ReportList] jobId:', filters.value.jobId)
-    console.log('[ReportList] dateRange:', dateRange.value)
-    
     // 格式化日期为 YYYY-MM-DD
     const formatDate = (date) => {
       if (!date) return undefined
@@ -312,8 +307,6 @@ const fetchData = async () => {
       start_date: formatDate(dateRange.value?.[0]),
       end_date: formatDate(dateRange.value?.[1])
     }
-    
-    console.log('[ReportList] API params:', params)
     
     const res = await getExecutionList(params)
     tableData.value = parseList(res)
