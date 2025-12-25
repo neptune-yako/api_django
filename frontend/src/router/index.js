@@ -189,6 +189,14 @@ const routes = [
                         meta: {
                             title: "构建报告"
                         }
+                    },
+                    {
+                        path: 'report/:id',
+                        name: 'ReportDetail',
+                        component: () => import('@/views/jenkins/report/ReportDetail.vue'),
+                        meta: {
+                            title: "报告详情"
+                        }
                     }
                 ]
             }

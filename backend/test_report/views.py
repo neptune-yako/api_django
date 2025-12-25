@@ -193,8 +193,11 @@ class TestExecutionListView(APIView):
             start_date = request.query_params.get('start_date')
             end_date = request.query_params.get('end_date')
             
-            # 调试日志
-            logger.info(f"[TestReport] 查询参数 - server_id: {server_id}, job_id: {job_id}, start_date: {start_date}, end_date: {end_date}")
+            # 1. 获取查询参数
+            server_id = request.query_params.get('server_id')
+            job_id = request.query_params.get('job_id')
+            start_date = request.query_params.get('start_date')
+            end_date = request.query_params.get('end_date')
             
             # 2. 使用自定义 Manager 进行链式查询
             queryset = (TestExecution.objects

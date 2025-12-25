@@ -49,9 +49,21 @@ class AllureClient:
         pass_rate = round((passed / total) * 100, 2) if total > 0 else 0.00
         
         # 转换时间戳 (Allure 时间戳通常是毫秒)
+        # 兼容不同版本的 Allure JSON 结构
         start_ts = time_data.get('start')
         end_ts = time_data.get('stop')
+        
+        # 核心逻辑：有则填，无则空，优先取最准确的字段
+        
+        # 1. execution_time (墙钟时间)
+        # 只取 'duration' 字段，如果 JSON 里没有就留空或为 0
         duration_ms = time_data.get('duration', 0)
+        
+        # 2. sum_duration (累计时间)
+        # 优先取 'sumDuration'，如果没有则退而求其次取 'duration'
+        sum_duration_ms = time_data.get('sumDuration')
+        if sum_duration_ms is None:
+            sum_duration_ms = duration_ms
         
         return {
             'total_cases': total,
@@ -63,10 +75,10 @@ class AllureClient:
             'pass_rate': pass_rate,
             'start_time': datetime.fromtimestamp(start_ts / 1000) if start_ts else None,
             'end_time': datetime.fromtimestamp(end_ts / 1000) if end_ts else None,
-            'sum_duration': duration_ms,
+            'sum_duration': sum_duration_ms,
             'min_duration': time_data.get('minDuration', 0),
             'max_duration': time_data.get('maxDuration', 0),
-            'execution_time': self._format_duration(duration_ms)
+            'execution_time': self._format_duration(duration_ms) if duration_ms > 0 else None
         }
 
     # ==================== 2. TestSuite (Suites) ====================
