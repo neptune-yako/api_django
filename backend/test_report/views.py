@@ -87,10 +87,28 @@ class SyncJobBuildsView(APIView):
             
             # 3. 如果 end_build 未指定，获取最新构建号
             if not end_build:
-                # TODO: 调用 Jenkins API 获取 lastBuild.number
-                # 临时方案：默认同步最近 100 个构建
-                end_build = start_build + 99
-                logger.warning(f"未指定 end_build，默认同步到 Build #{end_build}")
+                from jenkins_integration.jenkins_client import get_job_detail_by_server
+                
+                # 获取 Jenkins Server 配置
+                server = job.server
+                if not server:
+                    return R.error(message=f"Job '{job_name}' 未关联 Jenkins Server")
+                
+                # 调用 API 获取 Job 详情
+                success, message, job_detail = get_job_detail_by_server(server, job.name)
+                
+                if success and job_detail and job_detail.get('last_build_number'):
+                    end_build = job_detail['last_build_number']
+                    logger.info(f"[TestReport] 自动获取最新构建号: {end_build}")
+                else:
+                    # 回退方案：使用数据库中的 last_build_number
+                    if job.last_build_number:
+                        end_build = job.last_build_number
+                        logger.warning(f"[TestReport] Jenkins API 获取失败，使用数据库值: {end_build}")
+                    else:
+                        return R.error(
+                            message=f"无法获取 Job '{job_name}' 的最新构建号，请手动指定 end_build 参数"
+                        )
             
             # 4. 启动 Celery 异步任务
             from .tasks import sync_job_builds_task
