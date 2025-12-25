@@ -129,6 +129,15 @@
         </el-select>
       </el-form-item>
       
+      <el-form-item label="执行节点" v-if="selectedEnvironmentNode">
+        <el-tag type="success" size="large">
+          {{ selectedEnvironmentNode.name }}
+        </el-tag>
+        <span style="font-size: 12px; color: #909399; margin-left: 10px">
+          💡 自动从选择的测试环境获取，节点 IP: {{ selectedEnvironmentNode.ip_address || 'N/A' }}
+        </span>
+      </el-form-item>
+      
       <!-- 高级配置 -->
       <el-divider content-position="left">高级配置</el-divider>
       
@@ -230,7 +239,8 @@ const form = ref({
   config_xml: '',
   project: null,
   environments: [],  // 改为数组
-  plan: null
+  plan: null,
+  target_node: null  // 新增:目标节点
 })
 
 // 表单验证
@@ -256,6 +266,18 @@ const {
   loadEnvironments,
   loadPlans
 } = useJobFormOptions()
+
+// 计算属性: 从选择的环境中获取 Jenkins 节点
+const selectedEnvironmentNode = computed(() => {
+  if (!form.value.environments || form.value.environments.length === 0) {
+    return null
+  }
+  
+  const firstEnvId = form.value.environments[0]
+  const env = environmentList.value.find(e => e.id === firstEnvId)
+  
+  return env?.jenkins_node || null
+})
 
 // 根据选中的项目过滤环境列表
 const filteredEnvironmentList = computed(() => {
@@ -297,7 +319,8 @@ watch(() => props.jobData, async (newData) => {
       config_xml: newData.config_xml || '',
       project: newData.project || null,
       environments: newData.environments || [],  // 处理环境ID数组
-      plan: newData.plan || null
+      plan: newData.plan || null,
+      target_node: newData.target_node || null  // 加载节点数据
     }
     xmlValidation.value = { valid: true, error: '' }
     forceEdit = false
@@ -465,6 +488,7 @@ const handleSave = async () => {
         project: form.value.project || undefined,
         environments: form.value.environments || undefined,  // 修改
         plan: form.value.plan || undefined,
+        target_node: selectedEnvironmentNode.value?.id || undefined,  // 使用环境关联的节点
         force: forceEdit
     }
     

@@ -48,16 +48,30 @@ class JenkinsJobManageView(APIView):
             job_type = request.data.get('job_type', 'FreeStyle')  # 默认 FreeStyle
             force = request.data.get('force', False)
             
+            # 获取节点信息
+            node_label = 'any'
+            target_node_id = request.data.get('target_node')
+            if target_node_id:
+                from ..models import JenkinsNode
+                try:
+                    node = JenkinsNode.objects.get(id=target_node_id)
+                    node_label = node.name  # 使用节点名称作为 label
+                except JenkinsNode.DoesNotExist:
+                    logger.warning(f"目标节点 ID {target_node_id} 不存在，将使用默认节点")
+            
             if not config_xml:
                 # 从模板加载配置
-                config_xml = self._load_template_xml(job_type, request.data.get('description', ''))
+                config_xml = self._load_template_xml(job_type, request.data.get('description', ''), node_label)
             else:
+                # 用户提供了 config_xml,但仍需要替换节点占位符
+                config_xml = self._replace_agent_placeholder(config_xml, node_label)
+                
                 # XML 校验
                 from ..jenkins_client import validate_xml
                 is_valid, errors = validate_xml(config_xml)
                 if not is_valid and not force:
                     return R.error(
-                        message="XML 验证失败，请修复后重试或强制保存",
+                        message="XML 验证失败,请修复后重试或强制保存",
                         code=ResponseCode.JENKINS_XML_INVALID,
                         data={'errors': errors, 'need_force': True}
                     )
@@ -101,6 +115,7 @@ class JenkinsJobManageView(APIView):
                     is_active=request.data.get('is_active', True),
                     project_id=get_id('project'),
                     plan_id=get_id('plan'),
+                    target_node_id=get_id('target_node'),  # 保存目标节点
                     job_type=job_type,  
                     is_buildable=True,
                     created_by=created_by,
@@ -244,6 +259,10 @@ class JenkinsJobManageView(APIView):
                 job.plan_id = data['plan']
                 update_fields.append('plan')
             
+            if 'target_node' in data:
+                job.target_node_id = data['target_node']
+                update_fields.append('target_node')
+            
             # 更新环境关联 (多对多) - 支持 environments 或 environment
             if 'environments' in data or 'environment' in data:
                 environment_ids = data.get('environments') or data.get('environment', [])
@@ -275,7 +294,7 @@ class JenkinsJobManageView(APIView):
                 data={'traceback': error_trace}
             )
     
-    def _load_template_xml(self, job_type='FreeStyle', description=''):
+    def _load_template_xml(self, job_type='FreeStyle', description='', node_label='any'):
         """从模板文件加载配置 XML"""
         import os
         from django.conf import settings
@@ -302,6 +321,14 @@ class JenkinsJobManageView(APIView):
             # 替换描述占位符（如果模板中有的话）
             if description and '{{description}}' in config_xml:
                 config_xml = config_xml.replace('{{description}}', description)
+            
+            # 替换 agent 占位符
+            if '{{agent_label}}' in config_xml:
+                if node_label and node_label != 'any':
+                    agent_str = f"{{ label '{node_label}' }}"
+                else:
+                    agent_str = 'any'
+                config_xml = config_xml.replace('{{agent_label}}', agent_str)
             
             return config_xml
         except FileNotFoundError:
@@ -346,3 +373,23 @@ class JenkinsJobManageView(APIView):
         except Exception as e:
             logger.error(f"更新 XML description 失败: {e}")
             return config_xml
+    
+    def _replace_agent_placeholder(self, config_xml, node_label='any'):
+        """
+        替换 config_xml 中的 agent 占位符
+        
+        Args:
+            config_xml: 配置 XML 字符串
+            node_label: 节点标签,默认 'any'
+            
+        Returns:
+            替换后的 XML 字符串
+        """
+        if '{{agent_label}}' in config_xml:
+            if node_label and node_label != 'any':
+                agent_str = f"{{ label '{node_label}' }}"
+            else:
+                agent_str = 'any'
+            config_xml = config_xml.replace('{{agent_label}}', agent_str)
+        
+        return config_xml

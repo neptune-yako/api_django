@@ -1,0 +1,112 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@2.40">
+  <actions/>
+  <description>多节点并行示例 Pipeline</description>
+  <keepDependencies>false</keepDependencies>
+  <properties/>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2.90">
+    <script>pipeline {
+    agent any
+    
+    stages {
+        stage(&#x27;准备环境&#x27;) {
+            steps {
+                echo &#x27;======================================&#x27;
+                echo &#x27;多节点并行测试&#x27;
+                echo &#x27;======================================&#x27;
+                echo &quot;目标节点: node-a, node-b, node-c&quot;
+                echo &quot;节点数量: 3&quot;
+            }
+        }
+        
+        stage(&#x27;并行执行测试&#x27;) {
+            parallel {
+        &#x27;node-a&#x27;: {
+            node(&#x27;node-a&#x27;) {
+                stage(&#x27;执行测试 - node-a&#x27;) {
+                    echo &quot;======================================&quot;
+                    echo &quot;节点: node-a&quot;
+                    echo &quot;执行节点: ${env.NODE_NAME}&quot;
+                    echo &quot;======================================&quot;
+                    
+                    // 在这里添加测试命令
+                    // sh &#x27;pytest tests/ --alluredir=allure-results -v&#x27;
+                    
+                    sh &#x27;&#x27;&#x27;
+                        echo &quot;Running tests on node-a...&quot;
+                        sleep 2
+                        echo &quot;Tests completed on node-a!&quot;
+                    &#x27;&#x27;&#x27;
+                }
+            }
+        },
+        &#x27;node-b&#x27;: {
+            node(&#x27;node-b&#x27;) {
+                stage(&#x27;执行测试 - node-b&#x27;) {
+                    echo &quot;======================================&quot;
+                    echo &quot;节点: node-b&quot;
+                    echo &quot;执行节点: ${env.NODE_NAME}&quot;
+                    echo &quot;======================================&quot;
+                    
+                    // 在这里添加测试命令
+                    // sh &#x27;pytest tests/ --alluredir=allure-results -v&#x27;
+                    
+                    sh &#x27;&#x27;&#x27;
+                        echo &quot;Running tests on node-b...&quot;
+                        sleep 2
+                        echo &quot;Tests completed on node-b!&quot;
+                    &#x27;&#x27;&#x27;
+                }
+            }
+        },
+        &#x27;node-c&#x27;: {
+            node(&#x27;node-c&#x27;) {
+                stage(&#x27;执行测试 - node-c&#x27;) {
+                    echo &quot;======================================&quot;
+                    echo &quot;节点: node-c&quot;
+                    echo &quot;执行节点: ${env.NODE_NAME}&quot;
+                    echo &quot;======================================&quot;
+                    
+                    // 在这里添加测试命令
+                    // sh &#x27;pytest tests/ --alluredir=allure-results -v&#x27;
+                    
+                    sh &#x27;&#x27;&#x27;
+                        echo &quot;Running tests on node-c...&quot;
+                        sleep 2
+                        echo &quot;Tests completed on node-c!&quot;
+                    &#x27;&#x27;&#x27;
+                }
+            }
+        }
+            }
+        }
+        
+        stage(&#x27;汇总报告&#x27;) {
+            steps {
+                echo &#x27;======================================&#x27;
+                echo &#x27;汇总所有节点的测试结果&#x27;
+                echo &#x27;======================================&#x27;
+                // 在这里添加报告汇总命令
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo &#x27;======================================&#x27;
+            echo &#x27;Pipeline 执行完成&#x27;
+            echo &#x27;======================================&#x27;
+        }
+        success {
+            echo &#x27;✅ 所有节点测试成功&#x27;
+        }
+        failure {
+            echo &#x27;❌ 部分节点测试失败&#x27;
+        }
+    }
+}</script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

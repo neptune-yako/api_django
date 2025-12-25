@@ -65,6 +65,10 @@ class JenkinsJobSerializer(serializers.ModelSerializer):
     project_name = serializers.CharField(source='project.name', read_only=True, allow_null=True)
     plan_name = serializers.CharField(source='plan.name', read_only=True, allow_null=True)
     
+    # 目标节点字段
+    target_node = JenkinsNodeSerializer(read_only=True)
+    target_node_name = serializers.CharField(source='target_node.name', read_only=True, allow_null=True)
+    
     # 环境字段 - 支持多环境
     environment_names = serializers.SerializerMethodField()
     environment_name = serializers.SerializerMethodField()  # 向后兼容
@@ -81,6 +85,7 @@ class JenkinsJobSerializer(serializers.ModelSerializer):
             'plan', 'plan_name',
             'environments', 'environment_names', 'environment_name',  # 修改这里
             'nodes',  # 多对多字段
+            'target_node', 'target_node_name',  # 目标节点
             'config_xml', 'parameters',
             'is_active', 'is_buildable', 'job_type',
             'last_build_number', 'last_build_status',
@@ -91,6 +96,7 @@ class JenkinsJobSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'server_name', 'project_name', 'plan_name', 
             'environment_names', 'environment_name',
+            'target_node', 'target_node_name',  # target_node 只读,通过 target_node_id 写入
             'create_time', 'update_time', 'reports_count'
         ]
     
