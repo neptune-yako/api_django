@@ -94,9 +94,26 @@ class JenkinsJobManageView(APIView):
                 if pipeline_config.get('type') == 'custom' and pipeline_config.get('custom'):
                     generator_config['stages'] = pipeline_config['custom']
 
-                # 创建生成器（默认使用 label 模式）
+                # 创建生成器
                 use_custom_stages = pipeline_config.get('type') == 'custom'
-                generator = create_pipeline_generator(generator_config, 'label', use_custom_stages)
+
+                # 根据节点数量自动选择模式
+                if use_custom_stages:
+                    # 自定义 stages 使用 label 模式
+                    multi_node_mode = 'label'
+                else:
+                    # 解析节点数量
+                    if isinstance(node_label, str):
+                        node_count = len([label.strip() for label in node_label.split(',') if label.strip()])
+                    elif isinstance(node_label, list):
+                        node_count = len(node_label)
+                    else:
+                        node_count = 1
+
+                    # 多节点使用 matrix 模式，单节点使用 label 模式
+                    multi_node_mode = 'matrix' if node_count > 1 else 'label'
+
+                generator = create_pipeline_generator(generator_config, multi_node_mode, use_custom_stages)
 
                 # 生成配置 XML
                 config_xml = generator.generate_job_config_xml()
@@ -173,15 +190,19 @@ class JenkinsJobManageView(APIView):
                 if environment_ids:
                     job.environments.set(environment_ids)
 
-                # 从环境获取节点并设置
+                # 根据环境名称（节点标签）查找并设置对应的节点
                 if environment_ids:
                     from project.models import Environment
                     environments = Environment.objects.filter(id__in=environment_ids)
-                    node_ids = [env.jenkins_node_id for env in environments if env.jenkins_node_id]
-                    if node_ids:
-                        job.nodes.set(node_ids)
-                        logger.info(f"从环境设置了 {len(node_ids)} 个执行节点")
-                
+                    # 环境名称即为节点名称，通过名称匹配节点
+                    env_names = [env.name for env in environments if env.name]
+                    if env_names:
+                        # 查找匹配的 JenkinsNode（按名称匹配）
+                        matching_nodes = JenkinsNode.objects.filter(name__in=env_names, server=server)
+                        if matching_nodes.exists():
+                            job.nodes.set(matching_nodes)
+                            logger.info(f"从环境设置了 {matching_nodes.count()} 个执行节点: {list(matching_nodes.values_list('name', flat=True))}")
+
                 logger.info(f"本地 Job 创建成功: {job.name}")
                 
                 return R.success(message="创建成功", data=JenkinsJobSerializer(job).data)

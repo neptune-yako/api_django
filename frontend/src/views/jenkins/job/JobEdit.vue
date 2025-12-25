@@ -129,51 +129,99 @@
         </el-select>
       </el-form-item>
       
-      <el-form-item label="执行节点" v-if="selectedEnvironmentNode">
-        <el-tag type="success" size="large">
-          {{ selectedEnvironmentNode.name }}
-        </el-tag>
-        <span style="font-size: 12px; color: #909399; margin-left: 10px">
-          💡 自动从选择的测试环境获取，节点 IP: {{ selectedEnvironmentNode.ip_address || 'N/A' }}
-        </span>
-      </el-form-item>
-      
-      <!-- 高级配置 -->
-      <el-divider content-position="left">高级配置</el-divider>
-      
-      <el-form-item label="配置 XML">
-        <VAceEditor
-          ref="aceEditorRef"
-          v-model:value="form.config_xml"
-          lang="xml"
-          theme="chrome"
-          :options="{
-            fontSize: 14,
-            showPrintMargin: false,
-            showGutter: true,
-            highlightActiveLine: true,
-            enableBasicAutocompletion: true,
-            enableLiveAutocompletion: true,
-            enableSnippets: true,
-            tabSize: 2,
-            wrap: true,
-            useWorker: true  // 启用 Worker 进行实时验证
-          }"
-          style="height: 400px; width: 100%; border: 1px solid #dcdfe6; border-radius: 4px"
-          @blur="handleXmlBlur"
-          @init="handleEditorInit"
+      <!-- Pipeline 配置（仅 Pipeline 类型显示） -->
+      <template v-if="form.job_type === 'Pipeline'">
+        <el-divider content-position="left">
+          Pipeline 配置
+          <el-switch
+            v-model="form.use_visual_builder"
+            active-text="可视化"
+            inactive-text="高级"
+            style="margin-left: 20px"
+            @change="handleBuilderModeChange"
+          />
+        </el-divider>
+
+        <!-- 可视化构建器 -->
+        <PipelineBuilder
+          v-if="form.use_visual_builder"
+          :nodes="selectedEnvironmentNodes.map(e => e.node)"
+          :environments="selectedEnvironmentNames"
+          @update:config="handlePipelineConfigChange"
         />
-        <el-alert
-          v-if="xmlValidation.error"
-          type="warning"
-          :title="xmlValidation.error"
-          :closable="false"
-          style="margin-top: 10px"
-        />
-        <span style="font-size: 12px; color: #909399; display: block; margin-top: 5px">
-          ⚠️ 修改将同步到 Jenkins。XML 格式会自动验证，验证失败可选择强制保存
-        </span>
-      </el-form-item>
+
+        <!-- 高级模式：XML 编辑器 -->
+        <template v-else>
+          <el-form-item>
+            <VAceEditor
+              ref="aceEditorRef"
+              v-model:value="form.config_xml"
+              lang="xml"
+              theme="chrome"
+              :options="{
+                fontSize: 14,
+                showPrintMargin: false,
+                showGutter: true,
+                highlightActiveLine: true,
+                enableBasicAutocompletion: true,
+                enableLiveAutocompletion: true,
+                enableSnippets: true,
+                tabSize: 2,
+                wrap: true,
+                useWorker: true
+              }"
+              style="height: 400px; width: 100%; border: 1px solid #dcdfe6; border-radius: 4px"
+              @blur="handleXmlBlur"
+              @init="handleEditorInit"
+            />
+            <el-alert
+              v-if="xmlValidation.error"
+              type="warning"
+              :title="xmlValidation.error"
+              :closable="false"
+              style="margin-top: 10px"
+            />
+          </el-form-item>
+        </template>
+      </template>
+
+      <!-- 非 Pipeline 类型的 XML 编辑器 -->
+      <template v-if="form.job_type !== 'Pipeline'">
+        <el-divider content-position="left">配置 XML</el-divider>
+        <el-form-item>
+          <VAceEditor
+            ref="aceEditorRef"
+            v-model:value="form.config_xml"
+            lang="xml"
+            theme="chrome"
+            :options="{
+              fontSize: 14,
+              showPrintMargin: false,
+              showGutter: true,
+              highlightActiveLine: true,
+              enableBasicAutocompletion: true,
+              enableLiveAutocompletion: true,
+              enableSnippets: true,
+              tabSize: 2,
+              wrap: true,
+              useWorker: true  // 启用 Worker 进行实时验证
+            }"
+            style="height: 400px; width: 100%; border: 1px solid #dcdfe6; border-radius: 4px"
+            @blur="handleXmlBlur"
+            @init="handleEditorInit"
+          />
+          <el-alert
+            v-if="xmlValidation.error"
+            type="warning"
+            :title="xmlValidation.error"
+            :closable="false"
+            style="margin-top: 10px"
+          />
+          <span style="font-size: 12px; color: #909399; display: block; margin-top: 5px">
+            ⚠️ 修改将同步到 Jenkins。XML 格式会自动验证，验证失败可选择强制保存
+          </span>
+        </el-form-item>
+      </template>
     </el-form>
     
     <template #footer>
@@ -205,6 +253,9 @@ ace.config.set('basePath', 'https://cdn.jsdelivr.net/npm/ace-builds@' + ace.vers
 import { editJenkinsJob } from '@/api/jenkins'
 import { useJobFormOptions } from '@/composables/useJobFormOptions'
 import http from '@/api/index'
+
+// 导入 PipelineBuilder 组件
+import PipelineBuilder from './components/PipelineBuilder.vue'
 
 // Props & Emits
 const props = defineProps({
@@ -240,7 +291,9 @@ const form = ref({
   project: null,
   environments: [],  // 改为数组
   plan: null,
-  target_node: null  // 新增:目标节点
+  target_node: null,  // 新增:目标节点
+  pipeline_config: {},   // 新增：Pipeline 可视化配置
+  use_visual_builder: true  // 新增：使用可视化构建器
 })
 
 // 表单验证
@@ -277,6 +330,44 @@ const selectedEnvironmentNode = computed(() => {
   const env = environmentList.value.find(e => e.id === firstEnvId)
   
   return env?.jenkins_node || null
+})
+
+// 计算从测试环境获取的执行节点
+const selectedEnvironmentNodes = computed(() => {
+  if (!form.value.environments || form.value.environments.length === 0) {
+    return []
+  }
+
+  // 从选择的环境中获取节点信息
+  const result = form.value.environments
+    .map(envId => {
+      const env = environmentList.value.find(e => e.id === envId)
+      // 如果找不到环境，返回null
+      if (!env) {
+        console.warn(`环境 ID ${envId} 未找到`)
+        return null
+      }
+      // 环境名称本身就是节点名称
+      return {
+        id: envId,
+        env: env,
+        node: {
+          name: env.name,
+          display_name: env.name
+        }
+      }
+    })
+    .filter(item => item !== null) // 过滤掉null值
+
+  console.log('selectedEnvironmentNodes (环境即节点):', result)
+  return result
+})
+
+// 获取环境名称列表（用于传递给后端）
+const selectedEnvironmentNames = computed(() => {
+  return selectedEnvironmentNodes.value
+    .filter(item => item && item.env)
+    .map(item => item.env.name)
 })
 
 // 根据选中的项目过滤环境列表
@@ -320,7 +411,9 @@ watch(() => props.jobData, async (newData) => {
       project: newData.project || null,
       environments: newData.environments || [],  // 处理环境ID数组
       plan: newData.plan || null,
-      target_node: newData.target_node || null  // 加载节点数据
+      target_node: newData.target_node || null,  // 加载节点数据
+      pipeline_config: newData.pipeline_config || {},  // 加载 Pipeline 配置
+      use_visual_builder: true  // 默认使用可视化构建器
     }
     xmlValidation.value = { valid: true, error: '' }
     forceEdit = false
@@ -347,6 +440,20 @@ const handleProjectChange = async (projectId) => {
       loadEnvironments(projectId),
       loadPlans(projectId)
     ])
+  }
+}
+
+// Pipeline 配置变更处理
+const handlePipelineConfigChange = (config) => {
+  form.value.pipeline_config = config
+  console.log('Pipeline 配置更新:', config)
+}
+
+// 新增：构建器模式切换处理
+const handleBuilderModeChange = (useVisual) => {
+  if (!useVisual) {
+    // 切换到高级模式时，如果没有config_xml，保持当前内容
+    console.log('切换到高级模式')
   }
 }
 
@@ -483,13 +590,29 @@ const handleSave = async () => {
         name: form.value.name,
         job_type: form.value.job_type,  // 添加 job_type
         description: form.value.description,
-        config_xml: form.value.config_xml || undefined,
         is_active: form.value.is_active,
         project: form.value.project || undefined,
         environments: form.value.environments || undefined,  // 修改
         plan: form.value.plan || undefined,
         target_node: selectedEnvironmentNode.value?.id || undefined,  // 使用环境关联的节点
         force: forceEdit
+    }
+
+    // 根据 Pipeline 类型和构建器模式处理配置
+    if (form.value.job_type === 'Pipeline') {
+      // 使用可视化构建器或高级模式
+      payload.use_visual_builder = form.value.use_visual_builder
+
+      if (form.value.use_visual_builder) {
+        // 可视化模式：发送 pipeline_config，不发送 config_xml
+        payload.pipeline_config = form.value.pipeline_config
+      } else {
+        // 高级模式：发送 config_xml
+        payload.config_xml = form.value.config_xml
+      }
+    } else {
+      // 非 Pipeline 类型：发送 config_xml
+      payload.config_xml = form.value.config_xml
     }
     
       const res = await (isCreateMode.value ? createJenkinsJob(payload) : editJenkinsJob(payload))

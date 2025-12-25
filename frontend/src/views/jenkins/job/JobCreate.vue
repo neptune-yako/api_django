@@ -158,24 +158,6 @@
         </el-select>
       </el-form-item>
 
-      <!-- 已选择的测试环境信息 -->
-      <template v-if="selectedEnvironmentNodes.length > 0">
-        <el-divider content-position="left">执行节点</el-divider>
-        <el-form-item>
-          <div v-for="envNode in selectedEnvironmentNodes" :key="envNode.id" style="margin-bottom: 10px">
-            <el-tag type="success" size="large">
-              {{ envNode.node.name }}
-            </el-tag>
-            <span style="font-size: 12px; color: #909399; margin-left: 10px">
-              环境: {{ envNode.env.name }}
-            </span>
-          </div>
-          <span style="font-size: 12px; color: #909399; display: block; margin-top: 5px">
-            💡 环境名称即为 Jenkins 节点名称，共 {{ selectedEnvironmentNodes.length }} 个
-          </span>
-        </el-form-item>
-      </template>
-
       <!-- Pipeline 配置（仅 Pipeline 类型显示） -->
       <template v-if="form.job_type === 'Pipeline'">
         <el-divider content-position="left">
@@ -414,18 +396,25 @@ const selectedEnvironmentNodes = computed(() => {
   }
 
   // 从选择的环境中获取节点信息
-  const result = form.value.environments.map(envId => {
-    const env = environmentList.value.find(e => e.id === envId)
-    // 环境名称本身就是节点名称
-    return {
-      id: envId,
-      env: env,
-      node: {
-        name: env.name,
-        display_name: env.name
+  const result = form.value.environments
+    .map(envId => {
+      const env = environmentList.value.find(e => e.id === envId)
+      // 如果找不到环境，返回null
+      if (!env) {
+        console.warn(`环境 ID ${envId} 未找到`)
+        return null
       }
-    }
-  })
+      // 环境名称本身就是节点名称
+      return {
+        id: envId,
+        env: env,
+        node: {
+          name: env.name,
+          display_name: env.name
+        }
+      }
+    })
+    .filter(item => item !== null) // 过滤掉null值
 
   console.log('selectedEnvironmentNodes (环境即节点):', result)
   return result
@@ -433,7 +422,9 @@ const selectedEnvironmentNodes = computed(() => {
 
 // 获取环境名称列表（用于传递给后端）
 const selectedEnvironmentNames = computed(() => {
-  return selectedEnvironmentNodes.value.map(item => item.env.name)
+  return selectedEnvironmentNodes.value
+    .filter(item => item && item.env)
+    .map(item => item.env.name)
 })
 
 // Pipeline 配置变更处理

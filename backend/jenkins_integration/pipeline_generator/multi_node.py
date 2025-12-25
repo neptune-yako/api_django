@@ -11,6 +11,135 @@ from .base import BasePipelineGenerator, SimplePipelineGenerator
 logger = logging.getLogger(__name__)
 
 
+class MatrixPipelineGenerator(BasePipelineGenerator):
+    """
+    Matrix Pipeline 生成器
+    使用 Jenkins 声明式 Pipeline 的 matrix 指令实现多节点并行执行
+
+    参考: https://www.jenkins.io/doc/book/pipeline/syntax/#matrix
+    """
+
+    def generate_pipeline_script(self) -> str:
+        """生成 matrix Pipeline 脚本"""
+        # 单节点情况，回退到简单生成器
+        if not self.node_labels or len(self.node_labels) <= 1:
+            logger.info("单节点模式，Matrix 不适用，回退到 SimplePipelineGenerator")
+            return SimplePipelineGenerator(self.config).generate_pipeline_script()
+
+        logger.info(f"Matrix 多节点并行模式，节点: {self.node_labels}")
+
+        job_name = self.config.get('name', 'unknown')
+        environment_names = self.config.get('environment_names', [])
+        pre_script = self.config.get('pre_script', '')
+        test_command = self.config.get('test_command', '')
+        post_script = self.config.get('post_script', '')
+
+        # 环境信息字符串
+        env_info = f"环境: {', '.join(environment_names)}" if environment_names else "多节点并行测试"
+
+        # 构建 axis values（逗号分隔的字符串列表）
+        axis_values = ", ".join([f"'{label}'" for label in self.node_labels])
+
+        # 构建 matrix 内部的 stages
+        matrix_stages = self._build_matrix_stages(job_name, env_info, pre_script, test_command, post_script)
+
+        pipeline = f"""pipeline {{
+    agent none
+
+    stages {{
+        stage('多节点并行执行') {{
+            matrix {{
+                axes {{
+                    axis {{
+                        name 'NODE_LABEL'
+                        values {axis_values}
+                    }}
+                }}
+                stages {{
+{matrix_stages}
+                }}
+            }}
+        }}
+    }}
+
+    post {{
+        always {{
+            echo '=========================================='
+            echo '多节点 Pipeline 执行完成 - {env_info}'
+            echo '=========================================='
+        }}
+        success {{
+            echo '多节点 Pipeline 执行成功'
+        }}
+        failure {{
+            echo '多节点 Pipeline 执行失败'
+        }}
+    }}
+}}"""
+
+        return pipeline
+
+    def _build_matrix_stages(self, job_name: str, env_info: str,
+                             pre_script: str, test_command: str, post_script: str) -> str:
+        """构建 matrix 内部的 stages"""
+        stages_list = []
+
+        # 1. 环境信息 stage（必需）
+        stages_list.append(self._build_info_stage(job_name, env_info))
+
+        # 2. 准备环境 stage（可选）
+        if pre_script:
+            stages_list.append(self._build_pre_stage(pre_script))
+
+        # 3. 执行测试 stage（必需）
+        stages_list.append(self._build_test_stage(test_command))
+
+        # 4. 生成报告 stage（可选）
+        if post_script:
+            stages_list.append(self._build_post_stage(post_script))
+
+        return "\n".join(stages_list)
+
+    def _build_info_stage(self, job_name: str, env_info: str) -> str:
+        """构建环境信息 stage"""
+        return f"""                    stage('环境信息') {{
+                        steps {{
+                            echo "=========================================="
+                            echo "Job: {job_name}"
+                            echo "{env_info}"
+                            echo "节点: ${{NODE_LABEL}}"
+                            echo "=========================================="
+                        }}
+                    }}"""
+
+    def _build_pre_stage(self, pre_script: str) -> str:
+        """构建准备环境 stage"""
+        return f"""                    stage('准备环境') {{
+                        steps {{
+                            sh '''{pre_script}'''
+                        }}
+                    }}"""
+
+    def _build_test_stage(self, test_command: str) -> str:
+        """构建执行测试 stage（关键：使用 node() 分配节点）"""
+        cmd = test_command if test_command else 'echo "测试执行完成"'
+        return f"""                    stage('执行测试') {{
+                        steps {{
+                            node("${{NODE_LABEL}}") {{
+                                sh '''{cmd}'''
+                            }}
+                        }}
+                    }}"""
+
+    def _build_post_stage(self, post_script: str) -> str:
+        """构建生成报告 stage"""
+        return f"""                    stage('生成报告') {{
+                        steps {{
+                            sh '''{post_script}'''
+                        }}
+                    }}"""
+
+
 class MultiNodePipelineGenerator(BasePipelineGenerator):
     """
     多节点并行 Pipeline 生成器
@@ -188,6 +317,7 @@ def create_pipeline_generator(
         config: Job 配置字典
         multi_node_mode: 多节点模式
             - 'label': 使用 label 指令（默认，推荐）agent { label 'node-1 node-2' }
+            - 'matrix': 使用 matrix 指令（声明式 Pipeline，需要 Jenkins 2.300+）
             - 'parallel': 并行执行（使用 parallel 指令）
             - 'parent': 父子 Job 模式
         use_custom_stages: 是否使用自定义 stages
@@ -224,6 +354,9 @@ def create_pipeline_generator(
         if multi_node_mode == 'parent':
             logger.info(f"创建父子 Job 模式生成器，节点: {node_label_list}")
             return ParentJobGenerator(config)
+        elif multi_node_mode == 'matrix':
+            logger.info(f"创建 Matrix Pipeline 生成器，节点: {node_label_list}")
+            return MatrixPipelineGenerator(config)
         else:
             # parallel 并行模式
             logger.info(f"创建多节点并行 Pipeline 生成器，节点: {node_label_list}")
