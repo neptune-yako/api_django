@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     "bug.apps.BugConfig",
     'jenkins_integration.apps.JenkinsConfig',  # 添加jenkins应用
     'test_report',  # 测试报告模块
+    'test_django',  # 测试沙箱模块
 ]
 
 # 注册中间件
