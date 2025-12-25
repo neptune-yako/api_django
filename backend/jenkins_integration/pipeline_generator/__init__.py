@@ -8,6 +8,7 @@ from .base import BasePipelineGenerator, SimplePipelineGenerator
 from .multi_node import (
     MultiNodePipelineGenerator,
     ParentJobGenerator,
+    MatrixPipelineGenerator,
     create_pipeline_generator
 )
 
@@ -16,5 +17,6 @@ __all__ = [
     'SimplePipelineGenerator',
     'MultiNodePipelineGenerator',
     'ParentJobGenerator',
+    'MatrixPipelineGenerator',
     'create_pipeline_generator',
 ]

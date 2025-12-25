@@ -1,0 +1,91 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@2.40">
+  <actions/>
+  <description>Matrix Pipeline 示例 - 使用 Jenkins 声明式 Pipeline 的 matrix 指令实现多节点并行执行</description>
+  <keepDependencies>false</keepDependencies>
+  <properties/>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2.90">
+    <script>pipeline {
+    agent none
+
+    stages {
+        stage('多节点并行执行') {
+            matrix {
+                axes {
+                    axis {
+                        name 'NODE_LABEL'
+                        values 'node-a', 'node-b', 'node-c'
+                    }
+                }
+                stages {
+                    stage('环境信息') {
+                        steps {
+                            echo "=========================================="
+                            echo "Job: matrix-example-job"
+                            echo "多节点并行测试"
+                            echo "节点: ${NODE_LABEL}"
+                            echo "=========================================="
+                        }
+                    }
+
+                    stage('准备环境') {
+                        steps {
+                            echo "在节点 ${NODE_LABEL} 上准备测试环境"
+                            sh '''
+                                echo "准备环境..."
+                                # 在这里添加环境准备命令
+                                # pip install -r requirements.txt
+                            '''
+                        }
+                    }
+
+                    stage('执行测试') {
+                        steps {
+                            node("${NODE_LABEL}") {
+                                echo "在节点 ${NODE_LABEL} 上执行测试"
+                                sh '''
+                                    echo "Running tests on ${NODE_LABEL}..."
+                                    sleep 2
+                                    echo "Tests completed on ${NODE_LABEL}!"
+
+                                    # 在这里添加测试命令
+                                    # pytest tests/ --alluredir=allure-results -v
+                                '''
+                            }
+                        }
+                    }
+
+                    stage('生成报告') {
+                        steps {
+                            echo "在节点 ${NODE_LABEL} 上生成报告"
+                            sh '''
+                                echo "生成报告..."
+                                # 在这里添加报告生成命令
+                                # allure generate allure-results --clean -o allure-report
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "=========================================="
+            echo "多节点 Pipeline 执行完成"
+            echo "=========================================="
+        }
+        success {
+            echo "多节点 Pipeline 执行成功"
+        }
+        failure {
+            echo "多节点 Pipeline 执行失败"
+        }
+    }
+}</script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

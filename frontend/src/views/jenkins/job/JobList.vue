@@ -157,15 +157,6 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="执行节点" width="150">
-          <template #default="scope">
-            <span v-if="scope.row.target_node_name">
-              {{ scope.row.target_node_name }}
-            </span>
-            <span v-else style="color: #909399;">any</span>
-          </template>
-        </el-table-column>
-        
         <el-table-column prop="last_build_status" label="最后构建状态" width="150">
           <template #default="scope">
             <StatusTag :status="scope.row.last_build_status" type="build" />

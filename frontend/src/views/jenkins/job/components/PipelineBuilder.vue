@@ -157,7 +157,12 @@ const generatedPipeline = computed(() => {
 
 // 生成简单 Pipeline
 const generateSimplePipeline = (isMultiNode, nodes) => {
-  // 获取节点名称
+  // 多节点使用 matrix 模式，单节点使用 label 模式
+  if (isMultiNode && nodes && nodes.length > 1) {
+    return generateMatrixPipeline(nodes)
+  }
+
+  // 单节点模式
   let agentDirective = 'any'
   if (nodes && nodes.length > 0) {
     const nodeNames = nodes.map(n => n.name).join(' ')
@@ -201,13 +206,94 @@ ${stages}
 
     post {
         success {
-            echo '✅ Pipeline 执行成功'
+            echo 'Pipeline 执行成功'
         }
         failure {
-            echo '❌ Pipeline 执行失败'
+            echo 'Pipeline 执行失败'
         }
     }
 }`
+}
+
+// 生成 Matrix Pipeline（多节点并行）
+const generateMatrixPipeline = (nodes) => {
+  const nodeLabels = nodes.map(n => `'${n.name}'`).join(', ')
+  const preScript = simpleConfig.value.preScript || ''
+  const testCommand = simpleConfig.value.testCommand || 'echo "测试执行完成"'
+  const postScript = simpleConfig.value.postScript || ''
+
+  // 构建完整的 pipeline 字符串
+  let pipeline = `pipeline {
+    agent none
+
+    stages {
+        stage('多节点并行执行') {
+            matrix {
+                axes {
+                    axis {
+                        name 'NODE_LABEL'
+                        values ${nodeLabels}
+                    }
+                }
+                stages {
+                    stage('环境信息') {
+                        steps {
+                            echo "=========================================="
+                            echo "多节点并行测试"
+                            echo "节点: $\${NODE_LABEL}"
+                            echo "=========================================="
+                        }
+                    }`
+
+  if (preScript) {
+    pipeline += `
+                    stage('准备环境') {
+                        steps {
+                            sh '''${preScript}'''
+                        }
+                    }`
+  }
+
+  pipeline += `
+                    stage('执行测试') {
+                        steps {
+                            node("$\${NODE_LABEL}") {
+                                sh '''${testCommand}'''
+                            }
+                        }
+                    }`
+
+  if (postScript) {
+    pipeline += `
+                    stage('生成报告') {
+                        steps {
+                            sh '''${postScript}'''
+                        }
+                    }`
+  }
+
+  pipeline += `
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo '=========================================='
+            echo '多节点 Pipeline 执行完成'
+            echo '=========================================='
+        }
+        success {
+            echo '多节点 Pipeline 执行成功'
+        }
+        failure {
+            echo '多节点 Pipeline 执行失败'
+        }
+    }
+}`
+
+  return pipeline
 }
 
 // 生成自定义 Pipeline
