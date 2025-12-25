@@ -1,8 +1,8 @@
 <template>
   <!-- 顶部的logo图标 -->
   <div class="logo">
-    <img src="@/assets/images/icon.png" alt="logo">
-    <div class="title" v-if="!uStore.isCollapse">接口测试平台</div>
+
+    <img class="title-img" src="@/assets/images/logo_i.png" alt="接口测试平台" v-if="!uStore.isCollapse">
   </div>
   <!-- 菜单 -->
   <el-menu :default-active="activeMenu" :collapse="uStore.isCollapse" collapse-transition size="large">
