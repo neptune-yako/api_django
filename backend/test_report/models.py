@@ -1,6 +1,76 @@
 from django.db import models
 from jenkins_integration.models import JenkinsJob
 
+
+class TestExecutionQuerySet(models.QuerySet):
+    """自定义 QuerySet，封装常用查询逻辑"""
+    
+    def filter_by_server(self, server_id):
+        """
+        按 Server 筛选（通过 Job 的 Server）
+        
+        Args:
+            server_id: Jenkins Server ID
+            
+        Returns:
+            QuerySet
+        """
+        if server_id:
+            return self.filter(job__server_id=server_id)
+        return self
+    
+    def filter_by_job(self, job_id):
+        """
+        按 Job 筛选
+        
+        Args:
+            job_id: Jenkins Job ID
+            
+        Returns:
+            QuerySet
+        """
+        if job_id:
+            return self.filter(job_id=job_id)
+        return self
+    
+    def filter_by_date_range(self, start_date=None, end_date=None):
+        """
+        按日期范围筛选
+        
+        Args:
+            start_date: 开始日期
+            end_date: 结束日期
+            
+        Returns:
+            QuerySet
+        """
+        qs = self
+        if start_date:
+            qs = qs.filter(created_at__gte=start_date)
+        if end_date:
+            qs = qs.filter(created_at__lte=end_date)
+        return qs
+
+
+class TestExecutionManager(models.Manager):
+    """自定义 Manager"""
+    
+    def get_queryset(self):
+        return TestExecutionQuerySet(self.model, using=self._db)
+    
+    def filter_by_server(self, server_id):
+        """按 Server 筛选"""
+        return self.get_queryset().filter_by_server(server_id)
+    
+    def filter_by_job(self, job_id):
+        """按 Job 筛选"""
+        return self.get_queryset().filter_by_job(job_id)
+    
+    def filter_by_date_range(self, start_date=None, end_date=None):
+        """按日期范围筛选"""
+        return self.get_queryset().filter_by_date_range(start_date, end_date)
+
+
 class TestExecution(models.Model):
     """测试执行总览表 (test_execution)"""
     # 业务关联字段 (非甲方SQL强制，但为了业务闭环添加，设为可选)
@@ -38,11 +108,18 @@ class TestExecution(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    # 使用自定义 Manager
+    objects = TestExecutionManager()
 
     class Meta:
         db_table = 'test_execution'
         verbose_name = '测试执行总览'
         verbose_name_plural = verbose_name
+        indexes = [
+            models.Index(fields=['job', 'created_at'], name='idx_job_created'),
+            models.Index(fields=['timestamp'], name='idx_timestamp'),
+        ]
 
     def __str__(self):
         return f"{self.report_title} - {self.timestamp}"

@@ -1,5 +1,6 @@
 from rest_framework import viewsets, mixins
 from rest_framework.views import APIView
+from django_filters.rest_framework import DjangoFilterBackend
 from ..utils import R, ResponseCode, ResponseMessage
 from ..models import JenkinsJob
 from ..serializers import JenkinsJobSerializer
@@ -24,6 +25,7 @@ class JenkinsJobViewSet(mixins.RetrieveModelMixin,
     ).order_by('-last_sync_time')
     serializer_class = JenkinsJobSerializer
     pagination_class = MyPaginator
+    filter_backends = [DjangoFilterBackend]
     # 移除 environment,因为ManyToMany字段需要特殊处理
     filterset_fields = ['server', 'project', 'plan', 'is_active']
 
