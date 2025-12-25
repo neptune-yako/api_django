@@ -4,8 +4,9 @@ Jenkins Job 编辑视图
 """
 from rest_framework.views import APIView
 from ..utils import R, ResponseCode, ResponseMessage
-from ..models import JenkinsJob
+from ..models import JenkinsJob, JenkinsNode
 from ..serializers import JenkinsJobSerializer
+from ..pipeline_generator import create_pipeline_generator
 import logging
 import traceback
 
@@ -47,23 +48,66 @@ class JenkinsJobManageView(APIView):
             config_xml = request.data.get('config_xml')
             job_type = request.data.get('job_type', 'FreeStyle')  # 默认 FreeStyle
             force = request.data.get('force', False)
-            
-            # 获取节点信息
-            node_label = 'any'
-            target_node_id = request.data.get('target_node')
-            if target_node_id:
-                from ..models import JenkinsNode
-                try:
-                    node = JenkinsNode.objects.get(id=target_node_id)
-                    node_label = node.name  # 使用节点名称作为 label
-                except JenkinsNode.DoesNotExist:
-                    logger.warning(f"目标节点 ID {target_node_id} 不存在，将使用默认节点")
-            
+
+            # 获取环境ID列表
+            environment_ids = request.data.get('environments', [])
+
+            # 从测试环境获取节点信息（环境名称即为节点名称）
+            node_labels = []
+            environment_names = []
+
+            if environment_ids and len(environment_ids) > 0:
+                from project.models import Environment
+                environments = Environment.objects.filter(id__in=environment_ids)
+
+                # 收集环境名（环境名即节点名）
+                for env in environments:
+                    if env.name:
+                        environment_names.append(env.name)
+                        node_labels.append(env.name)
+
+                # 构建节点标签字符串
+                node_label = ','.join(node_labels) if node_labels else 'any'
+
+                logger.info(f"从环境获取节点（环境名即节点名），环境数: {len(environment_ids)}, 环境: {environment_names}, 节点: {node_label}")
+
+            # ===== 新增：Pipeline 生成器逻辑 =====
+            if not config_xml and job_type == 'Pipeline':
+                # Pipeline 类型：使用新的动态生成器
+                logger.info("使用 Pipeline 生成器动态生成配置")
+
+                # 获取 Pipeline 配置
+                pipeline_config = request.data.get('pipeline_config', {})
+
+                # 构建生成器配置
+                generator_config = {
+                    'name': job_name,
+                    'description': request.data.get('description', ''),
+                    'node_label': node_label,
+                    'environment_names': environment_names,  # 新增：环境名称列表
+                    'pre_script': pipeline_config.get('simple', {}).get('preScript', ''),
+                    'test_command': pipeline_config.get('simple', {}).get('testCommand', ''),
+                    'post_script': pipeline_config.get('simple', {}).get('postScript', ''),
+                }
+
+                # 处理自定义 stages
+                if pipeline_config.get('type') == 'custom' and pipeline_config.get('custom'):
+                    generator_config['stages'] = pipeline_config['custom']
+
+                # 创建生成器（默认使用 label 模式）
+                use_custom_stages = pipeline_config.get('type') == 'custom'
+                generator = create_pipeline_generator(generator_config, 'label', use_custom_stages)
+
+                # 生成配置 XML
+                config_xml = generator.generate_job_config_xml()
+                logger.info(f"Pipeline 配置已生成，节点: {node_label}, 环境: {environment_names}")
+            # ===== 结束新增 =====
+
             if not config_xml:
-                # 从模板加载配置
+                # 非 Pipeline 类型或用户未提供配置：从模板加载
                 config_xml = self._load_template_xml(job_type, request.data.get('description', ''), node_label)
-            else:
-                # 用户提供了 config_xml,但仍需要替换节点占位符
+            elif request.data.get('use_visual_builder', False) == False:
+                # 用户提供了 config_xml：替换节点占位符（仅高级模式）
                 config_xml = self._replace_agent_placeholder(config_xml, node_label)
                 
                 # XML 校验
@@ -106,6 +150,9 @@ class JenkinsJobManageView(APIView):
                 elif environment_ids is None or environment_ids == '':
                     environment_ids = []
 
+                # 判断是否为多节点父 Job（基于环境数量）
+                is_multi_node_parent = len(environment_ids) > 1
+
                 job = JenkinsJob.objects.create(
                     name=job_name,
                     display_name=job_name,
@@ -115,16 +162,25 @@ class JenkinsJobManageView(APIView):
                     is_active=request.data.get('is_active', True),
                     project_id=get_id('project'),
                     plan_id=get_id('plan'),
-                    target_node_id=get_id('target_node'),  # 保存目标节点
-                    job_type=job_type,  
+                    job_type=job_type,
                     is_buildable=True,
+                    is_multi_node_parent=is_multi_node_parent,
                     created_by=created_by,
                     last_sync_time=timezone.now() # 设置同步时间，确保显示在列表顶部
                 )
-                
-                # 设置多对多关系
+
+                # 设置环境多对多关系
                 if environment_ids:
                     job.environments.set(environment_ids)
+
+                # 从环境获取节点并设置
+                if environment_ids:
+                    from project.models import Environment
+                    environments = Environment.objects.filter(id__in=environment_ids)
+                    node_ids = [env.jenkins_node_id for env in environments if env.jenkins_node_id]
+                    if node_ids:
+                        job.nodes.set(node_ids)
+                        logger.info(f"从环境设置了 {len(node_ids)} 个执行节点")
                 
                 logger.info(f"本地 Job 创建成功: {job.name}")
                 

@@ -137,14 +137,39 @@ class JenkinsJob(models.Model):
         related_name='jobs',
         help_text="选择任务执行的节点（可多选，留空则使用默认节点）"
     )
-    
+
+    # 单节点主执行节点（向后兼容）
+    target_node = models.ForeignKey(
+        JenkinsNode,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="目标执行节点",
+        related_name='target_jobs',
+        help_text="该Job实际运行的节点"
+    )
+
     # Job 配置
     config_xml = models.TextField(blank=True, null=True, verbose_name="Job 配置 XML")
     parameters = models.JSONField(default=dict, blank=True, verbose_name="构建参数")
-    
+
     # 状态信息
     is_active = models.BooleanField(default=True, verbose_name="是否启用")
     is_buildable = models.BooleanField(default=True, verbose_name="是否可构建")
+    is_multi_node_parent = models.BooleanField(
+        default=False,
+        verbose_name="是否为多节点主Job",
+        help_text="标记该Job是否为多节点并行的父Job"
+    )
+    parent_job = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        verbose_name="父任务",
+        related_name='child_jobs',
+        help_text="多节点并行时，子Job指向主Job"
+    )
     job_type = models.CharField(
         max_length=20,
         default='freestyle',
