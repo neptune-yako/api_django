@@ -33,10 +33,47 @@
             <el-form-item label="测试计划：" prop="name" >
               <el-input v-model="activePlan.name" placeholder="请输入测试计划名称" clearable/>
             </el-form-item>
+            <el-form-item label="绑定脚本：">
+              <el-input 
+                v-model="activePlan.script_name" 
+                disabled 
+                placeholder="未绑定测试脚本"
+              >
+                <template #append>
+                  <el-button 
+                    v-if="!activePlan.script_file" 
+                    @click="triggerFileUpload" 
+                    type="primary" 
+                    icon="Upload"
+                  >上传</el-button>
+                  <el-button-group v-else>
+                    <el-button 
+                      @click="handleDownloadScript" 
+                      type="success" 
+                      icon="Download"
+                     >下载</el-button>
+                    <el-button 
+                      @click="handleUnbindScript" 
+                      type="danger" 
+                      icon="Close"
+                    >解绑</el-button>
+                  </el-button-group>
+                </template>
+              </el-input>
+              <!-- 隐藏的文件选择器 -->
+              <input 
+                ref="fileInput" 
+                type="file" 
+                accept=".py" 
+                style="display: none" 
+                @change="handleFileSelect"
+              />
+            </el-form-item>
           </el-form>
           <div class="btns">
             <el-button @click="savePlan(formDataRef)" icon="CircleCheck" plain type="primary">保存</el-button>
             <el-button @click="runPlan" plain type="success" icon="Promotion">运行</el-button>
+            <el-button @click="exportScript" plain type="warning" icon="Download">导出脚本</el-button>
             <el-tooltip class="box-item" effect="dark" content="删除测试计划，将删除计划下的套件、测试报告"
                         placement="top">
               <el-button @click="deletePlan" plain icon="Delete" type="danger">删除</el-button>
@@ -161,11 +198,153 @@ async function getPlanScene() {
   const response = await http.planApi.getPlanInfo(activePlan.value.id)
   if (response.status === 200) {
     scene.value = response.data.scene
+    // 更新activePlan以包含script信息
+    activePlan.value = response.data
     loading.value = false
   }
 }
 
-// 删除测试计划
+// ==================== Python脚本管理相关 ====================
+// 文件输入框引用
+const fileInput = ref(null)
+
+// 触发文件选择
+function triggerFileUpload() {
+  fileInput.value.click()
+}
+
+// 处理文件选择
+async function handleFileSelect(event) {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  // 验证文件类型
+  if (!file.name.endsWith('.py')) {
+    ElNotification({
+      title: '文件格式错误！',
+      type: 'warning',
+      message: '只支持上传.py格式的Python脚本文件',
+      duration: 2000
+    })
+    return
+  }
+  
+  // 创建FormData
+  const formData = new FormData()
+  formData.append('file', file)
+  
+  try {
+    loading.value = true
+    const response = await http.planApi.uploadScript(activePlan.value.id, formData)
+    
+    if (response.status === 200) {
+      ElNotification({
+        type: 'success',
+        title: '脚本上传成功！',
+        message: `已将 ${file.name} 绑定到测试计划`,
+        duration: 1500
+      })
+      
+      // 刷新测试计划信息
+      await getPlanScene()
+    }
+  } catch (error) {
+    ElNotification({
+      title: '上传失败！',
+      type: 'error',
+      message: error.response?.data?.detail || '上传过程中出现错误',
+      duration: 2000
+    })
+  } finally {
+    loading.value = false
+    // 清空文件输入框,允许重复上传同一文件
+    event.target.value = ''
+  }
+}
+
+// 下载脚本
+async function handleDownloadScript() {
+  try {
+    loading.value = true
+    const response = await http.planApi.downloadScript(activePlan.value.id)
+    
+    // 创建下载链接
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', activePlan.value.script_name || 'test_script.py')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    ElNotification({
+      type: 'success',
+      title: '脚本下载成功！',
+      duration: 1500
+    })
+  } catch (error) {
+    ElNotification({
+      title: '下载失败！',
+      type: 'error',
+      message: error.response?.data?.detail || '下载过程中出现错误',
+      duration: 2000
+    })
+  } finally {
+    loading.value = false
+  }
+}
+
+// 解绑脚本
+async function handleUnbindScript() {
+  ElMessageBox.confirm(
+    '确认要解除测试脚本的绑定吗?',
+    '提示', {
+      confirmButtonText: '仅解绑',
+      cancelButtonText: '取消',
+      distinguishCancelAndClose: true,
+      type: 'warning'
+    }
+  )
+  .then(async () => {
+    try {
+      loading.value = true
+      // 仅解绑,不删除文件
+      const response = await http.planApi.unbindScript(activePlan.value.id, {
+        delete_file: false
+      })
+      
+      if (response.status === 200) {
+        ElNotification({
+          type: 'success',
+          title: '解绑成功！',
+          duration: 1500
+        })
+        
+        // 刷新测试计划信息
+        await getPlanScene()
+      }
+    } catch (error) {
+      ElNotification({
+        title: '解绑失败！',
+        type: 'error',
+        message: error.response?.data?.detail || '解绑过程中出现错误',
+        duration: 2000
+      })
+    } finally {
+      loading.value = false
+    }
+  })
+  .catch(() => {
+    ElMessage({
+      type: 'info',
+      message: '已取消解绑',
+      duration: 1500
+    })
+  })
+}
+
+// ====================删除测试计划 ====================
 async function deletePlan() {
   ElMessageBox.confirm(
       '此操作不可恢复，确认要删除该计划?',
@@ -359,6 +538,63 @@ async function addScene() {
       message: response.data.detail,
       duration: 1500
     })
+  }
+}
+
+// 导出测试计划脚本
+async function exportScript() {
+  // 校验测试计划下的套件是否为空
+  if (scene.value.length === 0) {
+    ElNotification({
+      title: '导出失败！',
+      type: 'warning',
+      message: '当前测试计划中无测试套件，无法导出脚本！',
+      duration: 1500
+    })
+    return
+  }
+
+  if (!pstore.env) {
+    ElNotification({
+      title: '导出失败！',
+      type: 'warning',
+      message: '请先选择测试环境！',
+      duration: 1500
+    })
+    return
+  }
+
+  try {
+    loading.value = true
+    const response = await http.planApi.exportPlanScript(activePlan.value.id, {
+      env: pstore.env
+    })
+
+    // 创建下载链接
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `test_plan_${activePlan.value.name}.py`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+
+    ElNotification({
+      type: 'success',
+      title: '脚本导出成功！',
+      message: '测试脚本已下载到本地',
+      duration: 1500
+    })
+  } catch (error) {
+    ElNotification({
+      title: '脚本导出失败！',
+      type: 'error',
+      message: error.response?.data?.detail || '导出过程中出现错误',
+      duration: 2000
+    })
+  } finally {
+    loading.value = false
   }
 }
 </script>

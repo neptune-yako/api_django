@@ -236,3 +236,105 @@ class CustomPipelineGenerator(BasePipelineGenerator):
 }}"""
 
         return pipeline
+
+
+class CustomMatrixPipelineGenerator(BasePipelineGenerator):
+    """
+    自定义Matrix Pipeline生成器
+    支持自定义stages在多节点环境下使用matrix语法并行执行
+    """
+
+    def generate_pipeline_script(self) -> str:
+        """生成自定义Matrix Pipeline脚本"""
+        # 单节点情况,回退到普通自定义生成器
+        if not self.node_labels or len(self.node_labels) <= 1:
+            logger.info("单节点模式,使用 CustomPipelineGenerator")
+            return CustomPipelineGenerator(self.config).generate_pipeline_script()
+
+        logger.info(f"自定义Stage Matrix多节点并行模式,节点: {self.node_labels}")
+
+        # 获取自定义 stages
+        custom_stages = self.config.get('stages', [])
+        job_name = self.config.get('name', 'unknown')
+
+        # 如果没有自定义 stages,使用标准Matrix生成器
+        if not custom_stages:
+            logger.info("无自定义stages,使用标准MatrixPipelineGenerator")
+            from .multi_node import MatrixPipelineGenerator
+            return MatrixPipelineGenerator(self.config).generate_pipeline_script()
+
+        # 构建axis values(逗号分隔的字符串列表)
+        axis_values = ", ".join([f"'{label}'" for label in self.node_labels])
+
+        # 构建matrix内部的自定义stages
+        matrix_stages = self._build_custom_matrix_stages(job_name, custom_stages)
+
+        pipeline = f"""pipeline {{
+    agent none
+
+    stages {{
+        stage('多节点并行执行 - 自定义Stages') {{
+            matrix {{
+                axes {{
+                    axis {{
+                        name 'NODE_LABEL'
+                        values {axis_values}
+                    }}
+                }}
+                stages {{
+{matrix_stages}
+                }}
+            }}
+        }}
+    }}
+
+    post {{
+        always {{
+            echo '=========================================='
+            echo '自定义 Matrix Pipeline 执行完成 - {job_name}'
+            echo '=========================================='
+        }}
+        success {{
+            echo '✅ 所有节点执行成功'
+        }}
+        failure {{
+            echo '❌ 部分节点执行失败'
+        }}
+    }}
+}}"""
+
+        return pipeline
+
+    def _build_custom_matrix_stages(self, job_name: str, custom_stages: List[Dict[str, Any]]) -> str:
+        """构建matrix内部的自定义stages"""
+        stages_list = []
+
+        # 1. 环境信息stage(总是包含)
+        info_stage = f"""                    stage('环境信息') {{
+                        steps {{
+                            echo "=========================================="
+                            echo "Job: {job_name}"
+                            echo "节点: ${{NODE_LABEL}}"
+                            echo "实际节点: ${{env.NODE_NAME}}"
+                            echo "=========================================="
+                        }}
+                    }}"""
+        stages_list.append(info_stage)
+
+        # 2. 添加用户自定义的stages
+        for stage in custom_stages:
+            stage_name = stage.get('name', 'Unnamed Stage')
+            stage_script = stage.get('script', '')
+
+            # 为每个自定义stage生成matrix兼容的定义
+            custom_stage_def = f"""                    stage('{stage_name}') {{
+                        steps {{
+                            node("${{NODE_LABEL}}") {{
+                                sh '''{stage_script}'''
+                            }}
+                        }}
+                    }}"""
+            stages_list.append(custom_stage_def)
+
+        return "\n".join(stages_list)
+
