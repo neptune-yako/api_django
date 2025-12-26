@@ -156,7 +156,7 @@
             <VAceEditor
               ref="aceEditorRef"
               v-model:value="form.config_xml"
-              lang="xml"
+              lang="groovy"
               theme="chrome"
               :options="{
                 fontSize: 14,
@@ -168,7 +168,7 @@
                 enableSnippets: true,
                 tabSize: 2,
                 wrap: true,
-                useWorker: true
+                useWorker: false
               }"
               style="height: 400px; width: 100%; border: 1px solid #dcdfe6; border-radius: 4px"
               @blur="handleXmlBlur"

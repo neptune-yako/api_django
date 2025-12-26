@@ -272,6 +272,19 @@ export function getCredentialsList() {
   return http({ url: '/api/jenkins/credentials/', method: 'get' })
 }
 
+// ==================== Job 参数检查 ====================
+
+/**
+ * 检查 Job 的动态参数
+ * GET /api/jenkins/job/{job_id}/check_params
+ * 
+ * @param {number} jobId - Job 的数据库 ID
+ * @returns {Promise} 返回参数列表
+ */
+export function checkJobParams(jobId) {
+  return http({ url: `/api/jenkins/job/${jobId}/check_params`, method: 'get' })
+}
+
 // 默认导出
 export default {
   // 服务器管理
@@ -307,5 +320,7 @@ export default {
   deleteNode,
   syncNodesFromJenkins,
   // 凭证管理
-  getCredentialsList
+  getCredentialsList,
+  // 参数检查
+  checkJobParams
 }

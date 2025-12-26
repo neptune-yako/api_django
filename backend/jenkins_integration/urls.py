@@ -16,6 +16,9 @@ urlpatterns = [
     path('api/jenkins/job/build/', views.JenkinsJobBuildView.as_view(), name='jenkins_job_build'),
     path('api/jenkins/job/validate/', views.JenkinsJobValidateView.as_view(), name='jenkins_job_validate'),
     
+    # 检查 Job 动态参数 (新增 - 动态插槽功能)
+    path('api/jenkins/job/<int:job_id>/check_params/', views.JenkinsJobCheckParamsView.as_view(), name='jenkins_job_check_params'),
+    
     # 构建结果同步 (新)
     path('api/jenkins/build/sync/', views.SyncBuildResultView.as_view(), name='sync_build_result'),
     

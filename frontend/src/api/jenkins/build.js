@@ -107,3 +107,26 @@ export function syncBuildResult(data) {
         data
     })
 }
+
+/**
+ * 检查 Job 的动态参数
+ * GET /api/jenkins/job/{job_id}/check_params
+ * 
+ * 用于参数化构建前检查 Job 是否包含动态参数
+ * 
+ * @param {number} jobId - Job 的数据库 ID
+ * 
+ * @returns {Promise<{code: number, data: Object, message: string}>}
+ * @returns {Object} return.data - 参数信息
+ * @returns {Array<string>} return.data.params - 参数名列表，如 ['score', 'env']
+ * 
+ * @example
+ * const result = await checkJobParams(36)
+ * console.log('检测到参数:', result.data.params)
+ */
+export function checkJobParams(jobId) {
+    return request({
+        url: `/api/jenkins/job/${jobId}/check_params`,
+        method: 'get'
+    })
+}

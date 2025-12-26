@@ -31,6 +31,7 @@ export { createJenkinsJob } from './job'            // 创建 Job
 export { getBuildLatestStatus } from './build'      // 查询最新构建状态 (轮询用)
 export { getBuildAllureUrl } from './build'         // 获取 Allure 报告 URL
 export { syncBuildResult } from './build'           // 同步构建结果到数据库
+export { checkJobParams } from './build'            // 检查 Job 的动态参数
 
 // ==================== Allure 报告 ====================
 export { getAllureProxyUrl } from './allure'        // 获取 Allure 代理 URL (主页)
