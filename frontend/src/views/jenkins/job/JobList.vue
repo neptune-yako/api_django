@@ -230,6 +230,13 @@
       v-model:visible="createDialogVisible"
       @success="handleCreateSuccess"
     />
+    
+    <!-- 构建对话框 (新增 - 动态插槽功能) -->
+    <JobBuildDialog
+      v-model:visible="buildDialogVisible"
+      :job-data="currentBuildJob"
+      @success="handleBuildSuccess"
+    />
   </div>
 </template>
 
@@ -248,6 +255,7 @@ import { useJobFormOptions } from '@/composables/useJobFormOptions'
 import http from '@/api/index'
 import StatusTag from '../common/StatusTag.vue'
 import JobEdit from './JobEdit.vue'
+import JobBuildDialog from './components/JobBuildDialog.vue'  // 新增
 import JobCreate from './JobCreate.vue'
 import { parseList, parsePagination } from '../utils/response-parser'
 import { formatTime } from '../utils/formatters'
@@ -275,6 +283,10 @@ const currentJob = ref(null)
 
 // 创建对话框
 const createDialogVisible = ref(false)
+
+// 构建对话框 (新增)
+const buildDialogVisible = ref(false)
+const currentBuildJob = ref(null)
 
 // 分页
 const pagination = ref({
@@ -558,6 +570,7 @@ const handleCreateSuccess = () => {
 }
 
 // 触发构建
+/**
 const handleBuild = (row) => {
   ElMessageBox.confirm(
     `确定要触发任务 "${row.name}" 的构建吗?`,
@@ -595,6 +608,25 @@ const handleBuild = (row) => {
   }).catch(() => {
     // 用户取消操作
   })
+}
+**/
+// 触发构建 (重写 - 支持动态参数)
+const handleBuild = (row) => {
+  // 打开构建对话框
+  currentBuildJob.value = {
+    id: row.id,
+    name: row.name
+  }
+  buildDialogVisible.value = true
+}
+
+// 构建成功回调 (新增 - 动态插槽功能)
+const handleBuildSuccess = () => {
+  buildDialogVisible.value = false
+  // 刷新列表以更新构建状态
+  setTimeout(() => {
+    fetchData()
+  }, 1000)
 }
 
 

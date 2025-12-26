@@ -99,3 +99,47 @@ class JenkinsBuildAllureView(APIView):
                 return R.jenkins_error(message=message, data=data)
         except Exception as e:
             return R.internal_error(message=str(e))
+
+
+class JenkinsJobCheckParamsView(APIView):
+    """检查 Job 的动态参数 - 用于参数化构建"""
+    
+    def get(self, request, job_id):
+        """
+        获取指定 Job 的动态参数列表
+        
+        Args:
+            job_id: Job 的数据库 ID (从 URL 路径获取)
+            
+        Returns:
+            成功: {"code": 200, "data": {"params": ["score", "env"]}}
+            失败: {"code": xxx, "message": "错误信息"}
+        """
+        try:
+            from ..services.job_param_service import JobParamService
+            from ..models import JenkinsJob
+            
+            # 获取动态参数列表
+            try:
+                # 先获取 Job 信息
+                job = JenkinsJob.objects.get(id=job_id)
+                
+                params = JobParamService.get_job_params(job_id)
+                
+                logger.info(f"获取 Job {job_id} 的动态参数: {params}")
+                return R.success(
+                    message=f"检测到 {len(params)} 个动态参数",
+                    data={'params': params}
+                )
+                
+            except JenkinsJob.DoesNotExist:
+                logger.error(f"Job ID {job_id} 不存在")
+                return R.error(
+                    message=f"Job ID {job_id} 不存在",
+                    code=ResponseCode.JENKINS_JOB_NOT_FOUND
+                )
+                
+        except Exception as e:
+            error_msg = f"检查参数失败: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return R.internal_error(message=error_msg)

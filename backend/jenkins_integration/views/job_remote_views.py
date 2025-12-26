@@ -104,21 +104,82 @@ class JenkinsJobToggleView(APIView):
 
 
 class JenkinsJobBuildView(APIView):
-    """触发 Job 构建"""
+    """触发 Job 构建 - 支持动态参数"""
+    
     def post(self, request):
+        """
+        触发 Job 构建
+        
+        请求参数:
+            - job_name: Job 名称（必填）
+            - job_id: Job ID（可选，优先级低于 job_name）
+            - build_params: 动态参数字典（可选）{"score": "95", "env": "prod"}
+            - parameters: Jenkins 原生参数（可选，向后兼容）
+            
+        Returns:
+            成功: {"code": 200, "message": "构建已触发", "data": {...}}
+            失败: {"code": xxx, "message": "错误信息"}
+        """
         try:
             job_name = request.data.get('job_name')
-            parameters = request.data.get('parameters')
+            job_id = request.data.get('job_id')
+            build_params = request.data.get('build_params')  # 新增：动态参数
+            parameters = request.data.get('parameters')  # 原有：Jenkins 参数
             
-            if not job_name:
-                return R.bad_request(message=ResponseMessage.PARAM_MISSING + ': job_name')
+            # 参数校验
+            if not job_name and not job_id:
+                return R.bad_request(message=ResponseMessage.PARAM_MISSING + ': job_name 或 job_id')
             
-            from ..jenkins_client import build_job
-            success, message, data = build_job(job_name, parameters)
+            # 如果提供了 build_params，使用参数化构建
+            if build_params and isinstance(build_params, dict):
+                logger.info(f"检测到动态参数，使用参数化构建: {build_params}")
+                
+                # 使用 Service 层处理参数化构建
+                from ..services.job_param_service import JobParamService
+                from ..models import JenkinsJob
+                
+                # 如果只有 job_name，需要先查询 job_id
+                if not job_id:
+                    try:
+                        job = JenkinsJob.objects.get(name=job_name)
+                        job_id = job.id
+                    except JenkinsJob.DoesNotExist:
+                        return R.error(
+                            message=f"Job '{job_name}' 不存在",
+                            code=ResponseCode.JENKINS_JOB_NOT_FOUND
+                        )
+                
+                # 调用 Service 层的参数化构建方法
+                success, message, data = JobParamService.build_with_params(
+                    job_id=job_id,
+                    build_params=build_params,
+                    validate_missing=True  # 验证参数完整性
+                )
+                
+                if success:
+                    return R.success(message=message, data=data)
+                else:
+                    return R.error(message=message, code=ResponseCode.JENKINS_BUILD_FAILED)
             
-            if success:
-                return R.success(message=ResponseMessage.BUILD_TRIGGERED, data=data)
+            # 原有逻辑：普通构建（无动态参数）
             else:
-                return R.error(message=message, code=ResponseCode.JENKINS_BUILD_FAILED)
+                logger.info(f"触发普通构建: {job_name}")
+                
+                from ..jenkins_client import build_job
+                success, message, data = build_job(job_name, parameters)
+                
+                if success:
+                    return R.success(message=ResponseMessage.BUILD_TRIGGERED, data=data)
+                else:
+                    return R.error(message=message, code=ResponseCode.JENKINS_BUILD_FAILED)
+                    
+        except ValueError as e:
+            # 参数验证失败
+            logger.error(f"参数验证失败: {str(e)}")
+            return R.bad_request(message=str(e))
+            
         except Exception as e:
-            return R.internal_error(message=str(e))
+            error_msg = f"触发构建失败: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return R.internal_error(message=error_msg)
+
