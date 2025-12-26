@@ -1396,26 +1396,52 @@ class JenkinsNodesSyncFromJenkinsView(APIView):
                     updated_count += 1
                     logger.info(f"✓ 更新节点: {node_name}")
             
+            
             total_count = created_count + updated_count
             result_message = f'成功同步 {total_count} 个节点 (新增 {created_count}, 更新 {updated_count})'
             
             logger.info(result_message)
+            
+            # 同步完成后，自动清理失效节点
+            try:
+                from ..services.jenkins_sync import JenkinsSyncService
+                cleanup_success, cleanup_msg, cleanup_stats = JenkinsSyncService.cleanup_nodes(server_id=server.id)
+                
+                deleted_count = 0
+                envs_deleted_count = 0
+                
+                if cleanup_success and cleanup_stats:
+                    deleted_count = cleanup_stats.get('nodes_deleted', 0)
+                    envs_deleted_count = cleanup_stats.get('envs_deleted', 0)
+                    if deleted_count > 0 or envs_deleted_count > 0:
+                        logger.info(f"自动清理失效节点: 删除 {deleted_count} 个节点, {envs_deleted_count} 个环境")
+                        result_message += f', 清理 {deleted_count} 个失效节点'
+                else:
+                    if not cleanup_success:
+                        logger.warning(f"自动清理节点失败: {cleanup_msg}")
+            except Exception as cleanup_error:
+                logger.error(f"执行节点清理时出错: {str(cleanup_error)}")
+                deleted_count = 0
+                envs_deleted_count = 0
             
             return R.success(
                 message=result_message,
                 data={
                     'total': total_count,
                     'created': created_count,
-                    'updated': updated_count
+                    'updated': updated_count,
+                    'deleted': deleted_count,
+                    'envs_deleted': envs_deleted_count
                 }
             )
             
         except Exception as e:
             error_msg = f"同步节点失败: {str(e)}"
             error_trace = traceback.format_exc()
-            logger.error(f"{error_msg}\\n{error_trace}")
+            logger.error(f"{error_msg}\n{error_trace}")
             return R.internal_error(
                 message=error_msg,
                 data={'traceback': error_trace}
             )
+
 

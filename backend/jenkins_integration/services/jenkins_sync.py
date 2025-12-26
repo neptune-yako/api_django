@@ -253,5 +253,123 @@ class JenkinsSyncService:
                 continue
 
         logger.info(f"Jenkins 节点同步完成: 新建 {stats['created']}, 更新 {stats['updated']}, 跳过 {stats['skipped']}")
+        
+        # 同步完成后，自动清理失效节点
+        cleanup_success, cleanup_msg, cleanup_stats = JenkinsSyncService.cleanup_nodes(server_id=None)
+        
+        if cleanup_success and cleanup_stats:
+            stats['deleted'] = cleanup_stats.get('nodes_deleted', 0)
+            stats['envs_deleted'] = cleanup_stats.get('envs_deleted', 0)
+            logger.info(f"自动清理失效节点: 删除 {stats['deleted']} 个节点, {stats['envs_deleted']} 个环境")
+        else:
+            stats['deleted'] = 0
+            stats['envs_deleted'] = 0
+            if not cleanup_success:
+                logger.warning(f"自动清理节点失败: {cleanup_msg}")
 
         return True, f"成功同步 {stats['created'] + stats['updated']} 个环境", stats
+
+
+    @staticmethod
+    def cleanup_nodes(server_id=None):
+        """
+        清理失效的 Jenkins 节点 (删除本地存在但 Jenkins 服务器上已不存在的节点)
+        同时清理关联的 Environment 记录 (仅清理 source='jenkins' 的环境)
+        
+        Args:
+            server_id: Jenkins 服务器 ID (可选,默认使用第一个活跃服务器)
+            
+        Returns:
+            tuple: (是否成功, 消息, 删除统计)
+            删除统计格式: {
+                'nodes_deleted': int,      # 删除的 JenkinsNode 数量
+                'envs_deleted': int,       # 删除的 Environment 数量
+                'deleted_nodes': list      # 删除的节点名称列表
+            }
+        """
+        from project.models import Environment
+        from ..models import JenkinsNode, JenkinsServer
+        
+        try:
+            # 1. 获取指定的 Jenkins Server
+            if server_id:
+                try:
+                    server = JenkinsServer.objects.get(id=server_id)
+                except JenkinsServer.DoesNotExist:
+                    return False, f"服务器 ID [{server_id}] 不存在", None
+            else:
+                server = JenkinsServer.objects.filter(is_active=True).first()
+                if not server:
+                    return False, "请先配置活跃的 Jenkins 服务器", None
+            
+            # 2. 校验连接状态
+            if server.connection_status != 'connected':
+                return False, f"服务器 [{server.name}] 连接状态为 {server.connection_status},无法清理", None
+            
+            # 3. 从 Jenkins 获取远程节点名称列表
+            success, msg, nodes_data = get_all_nodes()
+            if not success:
+                return False, f"获取远程节点失败: {msg}", None
+            
+            # 提取远程节点名称集合
+            remote_node_names = {node.get('name') for node in nodes_data if node.get('name')}
+            
+            # 4. 从数据库获取本地节点名称列表
+            local_nodes = JenkinsNode.objects.filter(server=server)
+            local_node_names = {node.name for node in local_nodes}
+            
+            # 5. 计算差集：本地有但远程没有的 = 需要删除的
+            nodes_to_delete = local_node_names - remote_node_names
+            
+            if not nodes_to_delete:
+                logger.info(f"服务器 [{server.name}] 没有需要清理的失效节点")
+                return True, "没有需要清理的失效节点", {
+                    'nodes_deleted': 0,
+                    'envs_deleted': 0,
+                    'deleted_nodes': []
+                }
+            
+            # 6. 执行删除
+            nodes_deleted_count = 0
+            envs_deleted_count = 0
+            deleted_node_names = []
+            
+            with transaction.atomic():
+                for node_name in nodes_to_delete:
+                    # 6.1 删除关联的 Environment 记录 (仅删除 source='jenkins' 的)
+                    env_deleted = Environment.objects.filter(
+                        name=node_name,
+                        source='jenkins'
+                    ).delete()
+                    
+                    if env_deleted[0] > 0:
+                        envs_deleted_count += env_deleted[0]
+                        logger.info(f"删除失效环境: {node_name} (来源: jenkins)")
+                    
+                    # 6.2 删除 JenkinsNode 记录
+                    node_deleted = JenkinsNode.objects.filter(
+                        server=server,
+                        name=node_name
+                    ).delete()
+                    
+                    if node_deleted[0] > 0:
+                        nodes_deleted_count += 1
+                        deleted_node_names.append(node_name)
+                        logger.info(f"删除失效节点: {node_name}")
+            
+            stats = {
+                'nodes_deleted': nodes_deleted_count,
+                'envs_deleted': envs_deleted_count,
+                'deleted_nodes': deleted_node_names
+            }
+            
+            logger.info(
+                f"从服务器 [{server.name}] 清理完成，共删除 {nodes_deleted_count} 个节点, "
+                f"{envs_deleted_count} 个环境"
+            )
+            return True, f"成功清理 {nodes_deleted_count} 个失效节点和 {envs_deleted_count} 个环境", stats
+
+        except Exception as e:
+            error_msg = f"清理失效节点异常: {str(e)}"
+            logger.error(error_msg)
+            return False, error_msg, None

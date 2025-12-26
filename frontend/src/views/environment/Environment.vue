@@ -456,10 +456,10 @@ async function refreshAll() {
     try {
       const syncResponse = await syncNodesFromJenkins()
       if (syncResponse.data.code === 200) {
-        logger.info('从 Jenkins 同步节点成功:', syncResponse.data.message)
+        console.log('从 Jenkins 同步节点成功:', syncResponse.data.message)
       }
     } catch (syncError) {
-      logger.warn('从 Jenkins 同步节点失败,继续查询:', syncError)
+      console.warn('从 Jenkins 同步节点失败,继续查询:', syncError)
     }
 
     // 然后获取环境列表和节点列表
