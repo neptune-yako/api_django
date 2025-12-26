@@ -88,6 +88,9 @@ class JenkinsJobManageView(APIView):
                     'pre_script': pipeline_config.get('simple', {}).get('preScript', ''),
                     'test_command': pipeline_config.get('simple', {}).get('testCommand', ''),
                     'post_script': pipeline_config.get('simple', {}).get('postScript', ''),
+                    # 定时任务配置
+                    'cron_enabled': request.data.get('cron_enabled', False),
+                    'cron_schedule': request.data.get('cron_schedule', ''),
                 }
 
                 # 处理自定义 stages
@@ -183,7 +186,11 @@ class JenkinsJobManageView(APIView):
                     is_buildable=True,
                     is_multi_node_parent=is_multi_node_parent,
                     created_by=created_by,
-                    last_sync_time=timezone.now() # 设置同步时间，确保显示在列表顶部
+                    last_sync_time=timezone.now(), # 设置同步时间，确保显示在列表顶部
+                    # 定时任务配置
+                    cron_enabled=request.data.get('cron_enabled', False),
+                    cron_schedule=request.data.get('cron_schedule', ''),
+                    pipeline_config=request.data.get('pipeline_config', {}),
                 )
 
                 # 设置环境多对多关系
@@ -239,6 +246,16 @@ class JenkinsJobManageView(APIView):
             data = request.data
             force = data.get('force', False)  # 强制保存标记
             
+            # 调试日志
+            logger.info(f"编辑请求数据包含字段: {list(data.keys())}")
+            logger.info(f"Pipeline 类型: {job.job_type}")
+            if 'use_visual_builder' in data:
+                logger.info(f"use_visual_builder: {data.get('use_visual_builder')}")
+            if 'config_xml' in data:
+                logger.info(f"收到 config_xml，长度: {len(data.get('config_xml', ''))} 字符")
+            if 'pipeline_config' in data:
+                logger.info(f"收到 pipeline_config: {data.get('pipeline_config')}")
+            
             # 需要同步到 Jenkins 的字段
             need_jenkins_sync = False
             jenkins_operations = []  # 记录需要执行的 Jenkins 操作
@@ -250,6 +267,7 @@ class JenkinsJobManageView(APIView):
                 # 优先使用 config_xml，否则先获取现有配置
                 if 'config_xml' in data:
                     config_xml = data['config_xml']
+                    logger.info(f"使用提交的 config_xml 更新 Jenkins")
                 else:
                     # 只更新 description，需要先获取现有配置
                     from ..jenkins_client import get_job_config
@@ -280,7 +298,39 @@ class JenkinsJobManageView(APIView):
                 
                 jenkins_operations.append(('update_config', config_xml))
             
-            # 5. 处理 is_active
+            # 5. 处理定时任务变更（需要更新 XML 中的 triggers 块）
+            if 'cron_enabled' in data or 'cron_schedule' in data:
+                # 定时任务配置改变，需要重新生成 config_xml
+                need_jenkins_sync = True
+                logger.info("检测到定时任务配置变更，需要更新 Jenkins XML")
+                
+                # 获取当前 config_xml
+                if 'config_xml' in data:
+                    # 如果同时修改了 config_xml，使用新的 XML
+                    base_xml = data['config_xml']
+                else:
+                    # 否则获取现有配置
+                    from ..jenkins_client import get_job_config
+                    success, message, existing_config = get_job_config(job.name)
+                    if not success or not existing_config.get('config_xml'):
+                        logger.warning(f"获取现有配置失败，尝试使用数据库中的 config_xml")
+                        base_xml = job.config_xml or ''
+                    else:
+                        base_xml = existing_config.get('config_xml', '')
+                
+                # 更新 triggers 块
+                cron_enabled = data.get('cron_enabled', job.cron_enabled)
+                cron_schedule = data.get('cron_schedule', job.cron_schedule)
+                
+                config_xml = self._update_triggers_in_xml(base_xml, cron_enabled, cron_schedule)
+                jenkins_operations.append(('update_config', config_xml))
+                
+                # 更新 config_xml 到数据中，确保后续保存到DB
+                data['config_xml'] = config_xml
+                
+                logger.info(f"定时任务配置: enabled={cron_enabled}, schedule={cron_schedule}")
+            
+            # 6. 处理 is_active
             if 'is_active' in data:
                 new_active = data['is_active']
                 if new_active != job.is_active:
@@ -288,7 +338,7 @@ class JenkinsJobManageView(APIView):
                     action = 'enable' if new_active else 'disable'
                     jenkins_operations.append((action, None))
             
-            # 6. 执行 Jenkins 同步操作
+            # 7. 执行 Jenkins 同步操作
             if need_jenkins_sync:
                 from ..jenkins_client import update_job, enable_job, disable_job
                 
@@ -326,6 +376,19 @@ class JenkinsJobManageView(APIView):
             if 'is_active' in data:
                 job.is_active = data['is_active']
                 update_fields.append('is_active')
+            
+            # 定时任务字段
+            if 'cron_enabled' in data:
+                job.cron_enabled = data['cron_enabled']
+                update_fields.append('cron_enabled')
+            
+            if 'cron_schedule' in data:
+                job.cron_schedule = data['cron_schedule']
+                update_fields.append('cron_schedule')
+            
+            if 'pipeline_config' in data:
+                job.pipeline_config = data['pipeline_config']
+                update_fields.append('pipeline_config')
             
             # 仅本地字段（不需要同步到 Jenkins）
             if 'project' in data:
@@ -449,6 +512,50 @@ class JenkinsJobManageView(APIView):
             return ET.tostring(root, encoding='unicode')
         except Exception as e:
             logger.error(f"更新 XML description 失败: {e}")
+            return config_xml
+    
+    def _update_triggers_in_xml(self, config_xml: str, cron_enabled: bool, cron_schedule: str) -> str:
+        """
+        更新 XML 中的 triggers 块
+        
+        Args:
+            config_xml: 原始 XML 配置
+            cron_enabled: 是否启用定时任务
+            cron_schedule: Cron 表达式
+            
+        Returns:
+            更新后的 XML 字符串
+        """
+        import xml.etree.ElementTree as ET
+        
+        try:
+            root = ET.fromstring(config_xml)
+            
+            # 查找或创建 triggers 元素
+            triggers_elem = root.find('triggers')
+            if triggers_elem is None:
+                # 如果没有 triggers 元素，创建一个
+                triggers_elem = ET.SubElement(root, 'triggers')
+            
+            # 清空现有的 TimerTrigger
+            for timer in triggers_elem.findall('hudson.triggers.TimerTrigger'):
+                triggers_elem.remove(timer)
+            
+            # 如果启用了定时任务，添加 TimerTrigger
+            if cron_enabled and cron_schedule:
+                timer_trigger = ET.SubElement(triggers_elem, 'hudson.triggers.TimerTrigger')
+                spec = ET.SubElement(timer_trigger, 'spec')
+                spec.text = cron_schedule
+                logger.info(f"已添加定时触发器: {cron_schedule}")
+            else:
+                logger.info("定时触发器已移除或禁用")
+            
+            # 转换回字符串
+            return ET.tostring(root, encoding='unicode')
+            
+        except Exception as e:
+            logger.error(f"更新 triggers 块失败: {e}")
+            # 如果解析失败，返回原 XML
             return config_xml
     
     def _replace_agent_placeholder(self, config_xml, node_label='any'):

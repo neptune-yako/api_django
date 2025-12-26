@@ -667,6 +667,16 @@ const handleCreate = async () => {
       if (form.value.use_visual_builder) {
         // 可视化模式：发送 pipeline_config，不发送 config_xml
         payload.pipeline_config = form.value.pipeline_config
+        
+        // 添加定时任务配置（始终发送，确保能正确更新为 false）
+        if (form.value.pipeline_config.cron && form.value.pipeline_config.cron.enabled) {
+          payload.cron_enabled = true
+          payload.cron_schedule = form.value.pipeline_config.cron.schedule || ''
+        } else {
+          // 未启用或不存在 cron 配置时，显式设置为 false
+          payload.cron_enabled = false
+          payload.cron_schedule = ''
+        }
       } else {
         // 高级模式：发送 config_xml
         payload.config_xml = form.value.config_xml

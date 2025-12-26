@@ -52,6 +52,9 @@ class BasePipelineGenerator(ABC):
         pipeline_script = self.generate_pipeline_script()
         pipeline_script_escaped = html.escape(pipeline_script)
 
+        # 生成triggers块
+        triggers_block = self._generate_triggers_block()
+
         job_config = f"""<?xml version='1.1' encoding='UTF-8'?>
 <flow-definition plugin="workflow-job">
   <description>{html.escape(self.config.get('description', ''))}</description>
@@ -61,11 +64,35 @@ class BasePipelineGenerator(ABC):
     <script>{pipeline_script_escaped}</script>
     <sandbox>true</sandbox>
   </definition>
-  <triggers/>
+  {triggers_block}
   <disabled>false</disabled>
 </flow-definition>"""
 
         return job_config
+
+    def _generate_triggers_block(self) -> str:
+        """
+        生成triggers块
+        
+        Returns:
+            triggers XML块,如果没有配置则返回空的<triggers/>
+        """
+        cron_enabled = self.config.get('cron_enabled', False)
+        cron_schedule = self.config.get('cron_schedule', '')
+        
+        if not cron_enabled or not cron_schedule:
+            return '<triggers/>'
+        
+        # 转义cron表达式以防止XML注入
+        cron_escaped = html.escape(cron_schedule)
+        
+        triggers_xml = f"""<triggers>
+    <hudson.triggers.TimerTrigger>
+      <spec>{cron_escaped}</spec>
+    </hudson.triggers.TimerTrigger>
+  </triggers>"""
+        
+        return triggers_xml
 
     def is_multi_node(self) -> bool:
         """判断是否为多节点 Job"""

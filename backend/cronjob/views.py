@@ -22,6 +22,40 @@ class CronjobView(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.Destr
     # 设置分页数据
     pagination_class = MyPaginator
 
+    @extend_schema(summary="获取定时任务列表")
+    def list(self, request, *args, **kwargs):
+        """获取定时任务列表，包含测试计划定时任务和 Jenkins 定时任务"""
+        # 1. 获取测试计划定时任务（原有逻辑）
+        response = super().list(request, *args, **kwargs)
+        
+        # 2. 获取 Jenkins 定时任务
+        from jenkins_integration.models import JenkinsJob
+        
+        jenkins_jobs = JenkinsJob.objects.filter(
+            cron_enabled=True
+        ).select_related('server', 'project', 'plan').order_by('-update_time')
+        
+        # 序列化 Jenkins 定时任务数据
+        jenkins_cron_data = []
+        for job in jenkins_jobs:
+            jenkins_cron_data.append({
+                'id': job.id,
+                'name': job.name,
+                'cron_schedule': job.cron_schedule,
+                'is_active': job.is_active,
+                'server_name': job.server.name if job.server else '',
+                'project_name': job.project.name if job.project else '',
+                'plan_name': job.plan.name if job.plan else '',
+                'job_type': job.job_type,
+                'last_build_time': job.last_build_time,
+                'last_build_status': job.last_build_status,
+            })
+        
+        # 3. 添加到响应
+        response.data['jenkins_cron_jobs'] = jenkins_cron_data
+        
+        return response
+
     @extend_schema(summary="创建任务")
     def create(self, request, *args, **kwargs):
         """重写定时任务新建的方法"""

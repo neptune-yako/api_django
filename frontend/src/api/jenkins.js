@@ -184,6 +184,10 @@ export function getJenkinsJobDetail(jobId) {
   return http({ url: `/api/jenkins/pipeline/${jobId}/`, method: 'get' })
 }
 
+export function syncJenkinsJobConfig(jobId) {
+  return http({ url: `/api/jenkins/pipeline/${jobId}/sync-config/`, method: 'post' })
+}
+
 export function editJenkinsJob(data) {
   return http({ url: '/api/jenkins/job/manage/', method: 'put', data })
 }

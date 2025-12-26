@@ -86,10 +86,11 @@ class JenkinsJobSerializer(serializers.ModelSerializer):
             'environments', 'environment_names', 'environment_name',  # 修改这里
             'nodes',  # 多对多字段
             'target_node', 'target_node_name',  # 目标节点
-            'config_xml', 'parameters',
+            'config_xml', 'parameters', 'pipeline_config',
             'is_active', 'is_buildable', 'job_type',
             'last_build_number', 'last_build_status',
             'last_build_time', 'last_sync_time',
+            'cron_enabled', 'cron_schedule',  # 定时任务字段
             'created_by', 'create_time', 'update_time',
             'reports_count'  # 额外统计字段
         ]

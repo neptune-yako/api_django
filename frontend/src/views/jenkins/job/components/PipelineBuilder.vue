@@ -98,6 +98,57 @@
             </el-button>
           </div>
         </el-form-item>
+
+        <!-- 定时任务配置 -->
+        <el-form-item label="定时任务">
+          <div style="margin-bottom: 10px">
+            <el-checkbox v-model="advancedConfig.cron.enabled">
+              启用定时任务 (triggers)
+            </el-checkbox>
+          </div>
+          
+          <div v-if="advancedConfig.cron.enabled">
+            <!-- Cron 表达式输入 -->
+            <el-input
+              v-model="advancedConfig.cron.schedule"
+              placeholder="例如: H 18 * * * (每天18点)"
+              style="margin-bottom: 10px"
+            >
+              <template #prepend>Cron表达式</template>
+            </el-input>
+            
+            <!-- 常用时间模板 -->
+            <div style="margin-top: 10px">
+              <span style="font-size: 12px; color: #909399; margin-right: 10px">快速选择:</span>
+              <el-button-group size="small">
+                <el-button 
+                  @click="advancedConfig.cron.schedule = '* * * * *'"
+                  :type="advancedConfig.cron.schedule === '* * * * *' ? 'primary' : ''"
+                >每分钟构建</el-button>
+                <el-button 
+                  @click="advancedConfig.cron.schedule = 'H 2 * * *'"
+                  :type="advancedConfig.cron.schedule === 'H 2 * * *' ? 'primary' : ''"
+                >每天凌晨2点</el-button>
+                <el-button 
+                  @click="advancedConfig.cron.schedule = 'H 12 * * *'"
+                  :type="advancedConfig.cron.schedule === 'H 12 * * *' ? 'primary' : ''"
+                >每天中午12点</el-button>
+                <el-button 
+                  @click="advancedConfig.cron.schedule = 'H 18 * * *'"
+                  :type="advancedConfig.cron.schedule === 'H 18 * * *' ? 'primary' : ''"
+                >每天下午18点</el-button>
+                <el-button 
+                  @click="advancedConfig.cron.schedule = 'H 0 * * 1'"
+                  :type="advancedConfig.cron.schedule === 'H 0 * * 1' ? 'primary' : ''"
+                >每周一凌晨</el-button>
+              </el-button-group>
+            </div>
+            
+            <span style="font-size: 12px; color: #909399; display: block; margin-top: 10px">
+              💡 Jenkins Cron语法: 分 时 日 月 周 (H表示散列值避免同时执行)
+            </span>
+          </div>
+        </el-form-item>
       </el-collapse-item>
     </el-collapse>
 
@@ -197,17 +248,19 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 
 const props = defineProps({
   nodes: Array,
-  environments: Array
+  environments: Array,
+  config: Object // 新增: 初始配置
 })
 
 const emit = defineEmits(['update:config'])
 
 const pipelineType = ref('simple')
 const showPreview = ref(false)
+const isInitializing = ref(false) // 防止循环更新标志位
 
 // 简单模式配置
 const simpleConfig = ref({
@@ -307,6 +360,10 @@ const advancedConfig = ref({
     timeoutValue: 10,
     timeoutUnit: 'HOURS'
   },
+  cron: {
+    enabled: false,
+    schedule: ''
+  },
   environment: [
     { key: 'TEST_DIR', value: '${WORKSPACE}\\\\ci_autotest' },
     { key: 'SOURCE_DIR', value: 'D:\\\\CI\\\\source\\\\test_venus_dev\\\\ci_autotest' },
@@ -384,6 +441,19 @@ ${envLines}
 `
 }
 
+// 生成Triggers块
+const generateTriggersBlock = () => {
+  if (!advancedConfig.value.cron.enabled || !advancedConfig.value.cron.schedule) {
+    return ''
+  }
+  
+  return `    
+    triggers {
+        cron('${advancedConfig.value.cron.schedule}')
+    }
+`
+}
+
 // 计算生成的 Pipeline
 const generatedPipeline = computed(() => {
   const nodes = props.nodes || []
@@ -447,12 +517,13 @@ const generateSimplePipeline = (isMultiNode, nodes) => {
   const header = generatePipelineHeader()
   const options = generateOptionsBlock()
   const environment = generateEnvironmentBlock()
+  const triggers = generateTriggersBlock()
 
   return `${header}pipeline {
     agent {
         ${agentDirective}
     }
-${options}${environment}
+${options}${triggers}${environment}
     stages {
 ${stages}
     }
@@ -475,10 +546,16 @@ const generateMatrixPipeline = (nodes) => {
   const testCommand = simpleConfig.value.testCommand || 'echo "测试执行完成"'
   const postScript = simpleConfig.value.postScript || ''
 
-  // 构建完整的 pipeline 字符串
-  let pipeline = `pipeline {
-    agent none
+  // 生成高级配置块
+  const header = generatePipelineHeader()
+  const options = generateOptionsBlock()
+  const environment = generateEnvironmentBlock()
+  const triggers = generateTriggersBlock()
 
+  // 构建完整的 pipeline 字符串
+  let pipeline = `${header}pipeline {
+    agent none
+${options}${triggers}${environment}
     stages {
         stage('多节点并行执行') {
             matrix {
@@ -493,7 +570,7 @@ const generateMatrixPipeline = (nodes) => {
                         steps {
                             echo "=========================================="
                             echo "多节点并行测试"
-                            echo "节点: $\${NODE_LABEL}"
+                            echo "节点: \${NODE_LABEL}"
                             echo "=========================================="
                         }
                     }`
@@ -510,7 +587,7 @@ const generateMatrixPipeline = (nodes) => {
   pipeline += `
                     stage('执行测试') {
                         steps {
-                            node("$\${NODE_LABEL}") {
+                            node("\${NODE_LABEL}") {
                                 sh '''${testCommand}'''
                             }
                         }
@@ -587,12 +664,13 @@ ${stepsContent}
   const header = generatePipelineHeader()
   const options = generateOptionsBlock()
   const environment = generateEnvironmentBlock()
+  const triggers = generateTriggersBlock()
 
   return `${header}pipeline {
     agent {
         ${agentDirective}
     }
-${options}${environment}
+${options}${triggers}${environment}
     stages {
 ${stagesScript}
     }
@@ -609,6 +687,12 @@ ${stagesScript}
 const generateCustomMatrixPipeline = (nodes) => {
   const nodeNames = nodes.map(n => n.name)
   const axisValues = nodeNames.map(name => `'${name}'`).join(', ')
+
+  // 生成高级配置块
+  const header = generatePipelineHeader()
+  const options = generateOptionsBlock()
+  const environment = generateEnvironmentBlock()
+  const triggers = generateTriggersBlock()
 
   const stagesScript = customStages.value.map(stage => {
     // 根据execType生成不同的steps内容
@@ -634,9 +718,9 @@ ${stepsContent}
                     }`
   }).join('\n')
 
-  return `pipeline {
+  return `${header}pipeline {
     agent none
-
+${options}${triggers}${environment}
     stages {
         stage('多节点并行执行 - 自定义Stages') {
             matrix {
@@ -703,13 +787,70 @@ watch(() => props.nodes, (newNodes) => {
 
 // 向父组件发送配置更新
 watch([simpleConfig, customStages, pipelineType, advancedConfig], () => {
+  if (isInitializing.value) return // 初始化时不发送更新
+
   emit('update:config', {
     type: pipelineType.value,
     simple: simpleConfig.value,
     custom: customStages.value,
-    advanced: advancedConfig.value
+    advanced: advancedConfig.value,
+    cron: advancedConfig.value.cron  // 添加定时任务配置
   })
 }, { deep: true })
+
+// 监听 config prop 变化，初始化状态
+watch(() => props.config, (newConfig) => {
+  if (newConfig && Object.keys(newConfig).length > 0) {
+    // 简单的防抖：如果正在初始化或内容未变（这里很难判断内容未变，所以主要靠isInitializing）
+    // 为了更稳健，我们可以比较一下关键字段，或者只在组件mount时和id变化时强制更新
+    // 但目前最简单的是加锁
+    
+    isInitializing.value = true
+    console.log('PipelineBuilder - Initializing from config:', newConfig)
+    
+    try {
+      // 恢复 Pipeline 类型
+      if (newConfig.type) {
+        pipelineType.value = newConfig.type
+      }
+    
+    // 恢复简单配置
+    if (newConfig.simple) {
+      simpleConfig.value = { ...simpleConfig.value, ...newConfig.simple }
+    }
+    
+    // 恢复自定义 Stages
+    if (newConfig.custom && newConfig.custom.length > 0) {
+      customStages.value = newConfig.custom
+    }
+    
+    // 恢复高级配置
+    if (newConfig.advanced) {
+      // 合并高级配置，保留默认值
+      advancedConfig.value = { 
+        ...advancedConfig.value, 
+        ...newConfig.advanced,
+        // 确保数组也被正确赋值
+        environment: newConfig.advanced.environment || advancedConfig.value.environment,
+        options: { ...advancedConfig.value.options, ...newConfig.advanced.options }
+      }
+      
+      // 恢复定时任务配置
+      if (newConfig.cron) {
+        advancedConfig.value.cron = { ...advancedConfig.value.cron, ...newConfig.cron }
+      }
+    }
+    
+    // 如果有配置，自动显示预览
+    showPreview.value = true
+    } finally {
+      // 使用 nextTick 确保 watcher 回调执行完毕后再解锁
+      nextTick(() => {
+        isInitializing.value = false
+      })
+    }
+  }
+}, { immediate: true, deep: true })
 
 const handleTypeChange = () => {
   showPreview.value = true

@@ -43,9 +43,14 @@ class MatrixPipelineGenerator(BasePipelineGenerator):
         # 构建 matrix 内部的 stages
         matrix_stages = self._build_matrix_stages(job_name, env_info, pre_script, test_command, post_script)
 
-        pipeline = f"""pipeline {{
-    agent none
+        # 生成高级配置块
+        library_import = self._generate_library_import()
+        options_block = self._generate_options_block()
+        environment_block = self._generate_environment_block()
 
+        pipeline = f"""{library_import}pipeline {{
+    agent none
+{options_block}{environment_block}
     stages {{
         stage('多节点并行执行') {{
             matrix {{
@@ -138,6 +143,52 @@ class MatrixPipelineGenerator(BasePipelineGenerator):
                             sh '''{post_script}'''
                         }}
                     }}"""
+    
+    def _generate_library_import(self) -> str:
+        """生成 @Library 导入"""
+        advanced = self.config.get('advanced', {})
+        library = advanced.get('library', '')
+        
+        if library:
+            return f"@Library('{library}') _\n"
+        return ''
+    
+    def _generate_options_block(self) -> str:
+        """生成 options 块"""
+        advanced = self.config.get('advanced', {})
+        options = advanced.get('options', {})
+        
+        enabled_opts = []
+        
+        if options.get('disableConcurrentBuilds'):
+            enabled_opts.append('        disableConcurrentBuilds abortPrevious: true')
+        
+        if options.get('enableTimeout'):
+            timeout_value = options.get('timeoutValue', 10)
+            timeout_unit = options.get('timeoutUnit', 'HOURS')
+            enabled_opts.append(f"        timeout(time: {timeout_value}, unit: '{timeout_unit}')")
+        
+        if options.get('timestamps'):
+            enabled_opts.append('        timestamps()')
+        
+        if not enabled_opts:
+            return ''
+        
+        return "    options {\n" + "\n".join(enabled_opts) + "\n    }\n"
+    
+    def _generate_environment_block(self) -> str:
+        """生成 environment 块"""
+        advanced = self.config.get('advanced', {})
+        env_vars = advanced.get('environment', [])
+        
+        # 过滤出有效的环境变量
+        valid_env_vars = [e for e in env_vars if isinstance(e, dict) and e.get('key') and e.get('value')]
+        
+        if not valid_env_vars:
+            return ''
+        
+        env_lines = [f"        {var['key']} = \"{var['value']}\"" for var in valid_env_vars]
+        return "    environment {\n" + "\n".join(env_lines) + "\n    }\n"
 
 
 class MultiNodePipelineGenerator(BasePipelineGenerator):

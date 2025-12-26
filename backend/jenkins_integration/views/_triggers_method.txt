@@ -1,0 +1,43 @@
+    def _update_triggers_in_xml(self, config_xml: str, cron_enabled: bool, cron_schedule: str) -> str:
+        """
+        更新 XML 中的 triggers 块
+        
+        Args:
+            config_xml: 原始 XML 配置
+            cron_enabled: 是否启用定时任务
+            cron_schedule: Cron 表达式
+            
+        Returns:
+            更新后的 XML 字符串
+        """
+        import xml.etree.ElementTree as ET
+        
+        try:
+            root = ET.fromstring(config_xml)
+            
+            # 查找或创建 triggers 元素
+            triggers_elem = root.find('triggers')
+            if triggers_elem is None:
+                # 如果没有 triggers 元素，创建一个
+                triggers_elem = ET.SubElement(root, 'triggers')
+            
+            # 清空现有的 TimerTrigger
+            for timer in triggers_elem.findall('hudson.triggers.TimerTrigger'):
+                triggers_elem.remove(timer)
+            
+            # 如果启用了定时任务，添加 TimerTrigger
+            if cron_enabled and cron_schedule:
+                timer_trigger = ET.SubElement(triggers_elem, 'hudson.triggers.TimerTrigger')
+                spec = ET.SubElement(timer_trigger, 'spec')
+                spec.text = cron_schedule
+                logger.info(f"已添加定时触发器: {cron_schedule}")
+            else:
+                logger.info("定时触发器已移除或禁用")
+            
+            # 转换回字符串
+            return ET.tostring(root, encoding='unicode')
+            
+        except Exception as e:
+            logger.error(f"更新 triggers 块失败: {e}")
+            # 如果解析失败，返回原 XML
+            return config_xml

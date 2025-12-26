@@ -152,6 +152,9 @@ class JenkinsJob(models.Model):
     # Job 配置
     config_xml = models.TextField(blank=True, null=True, verbose_name="Job 配置 XML")
     parameters = models.JSONField(default=dict, blank=True, verbose_name="构建参数")
+    
+    # Pipeline 可视化配置 (仅本地保存，不发送给 Jenkins)
+    pipeline_config = models.JSONField(default=dict, blank=True, verbose_name="Pipeline 可视化配置")
 
     # 状态信息
     is_active = models.BooleanField(default=True, verbose_name="是否启用")
@@ -160,6 +163,20 @@ class JenkinsJob(models.Model):
         default=False,
         verbose_name="是否为多节点主Job",
         help_text="标记该Job是否为多节点并行的父Job"
+    )
+    
+    # 定时任务配置
+    cron_enabled = models.BooleanField(
+        default=False, 
+        verbose_name="启用定时任务",
+        help_text="是否启用定时执行"
+    )
+    cron_schedule = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True,
+        verbose_name="Cron表达式",
+        help_text="Jenkins cron语法，如: H 18 * * *"
     )
     parent_job = models.ForeignKey(
         'self',

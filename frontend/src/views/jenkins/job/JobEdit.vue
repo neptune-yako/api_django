@@ -147,11 +147,27 @@
           v-if="form.use_visual_builder"
           :nodes="selectedEnvironmentNodes.map(e => e.node)"
           :environments="selectedEnvironmentNames"
+          :config="form.pipeline_config"
           @update:config="handlePipelineConfigChange"
         />
 
         <!-- 高级模式：XML 编辑器 -->
         <template v-else>
+          <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; color: #909399;">
+              ⚠️ 高级模式：直接编辑 Jenkins Pipeline XML 配置
+            </span>
+            <el-button 
+              v-if="!isCreateMode" 
+              type="primary" 
+              link 
+              size="small" 
+              @click="handleSyncConfig"
+              :loading="syncing"
+            >
+              <el-icon><Refresh /></el-icon> 从 Jenkins 同步配置
+            </el-button>
+          </div>
           <el-form-item>
             <VAceEditor
               ref="aceEditorRef"
@@ -181,13 +197,29 @@
               :closable="false"
               style="margin-top: 10px"
             />
+            <span style="font-size: 12px; color: #909399; display: block; margin-top: 5px">
+              💡 修改将同步到 Jenkins。XML 格式会自动验证，验证失败可选择强制保存
+            </span>
           </el-form-item>
         </template>
       </template>
 
-      <!-- 非 Pipeline 类型的 XML 编辑器 -->
+
       <template v-if="form.job_type !== 'Pipeline'">
-        <el-divider content-position="left">配置 XML</el-divider>
+        <el-divider content-position="left">
+          配置 XML
+          <el-button 
+            v-if="!isCreateMode" 
+            type="primary" 
+            link 
+            size="small" 
+            style="margin-left: 20px"
+            @click="handleSyncConfig"
+            :loading="syncing"
+          >
+            <el-icon><Refresh /></el-icon> 从 Jenkins 同步配置
+          </el-button>
+        </el-divider>
         <el-form-item>
           <VAceEditor
             ref="aceEditorRef"
@@ -242,6 +274,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { VAceEditor } from 'vue3-ace-editor'
+import { Refresh } from '@element-plus/icons-vue' // 导入图标
 import ace from 'ace-builds'
 import 'ace-builds/src-noconflict/mode-xml'
 import 'ace-builds/src-noconflict/theme-chrome'
@@ -250,7 +283,7 @@ import 'ace-builds/src-noconflict/ext-language_tools'
 // 配置 ACE 基础路径
 ace.config.set('basePath', 'https://cdn.jsdelivr.net/npm/ace-builds@' + ace.version + '/src-noconflict/')
 
-import { editJenkinsJob } from '@/api/jenkins'
+import { editJenkinsJob, createJenkinsJob, getJenkinsJobDetail, syncJenkinsJobConfig } from '@/api/jenkins'
 import { useJobFormOptions } from '@/composables/useJobFormOptions'
 import http from '@/api/index'
 
@@ -278,6 +311,7 @@ const dialogTitle = computed(() => {
 const formRef = ref(null)
 const loading = ref(false)
 const saving = ref(false)
+const syncing = ref(false) // 同步状态
 const aceEditorRef = ref(null)  // ACE 编辑器引用
 
 // 表单数据
@@ -401,20 +435,52 @@ const jobTypeTagType = computed(() => {
 // 监听 jobData 变化，初始化表单
 watch(() => props.jobData, async (newData) => {
   if (newData) {
+    // 1. 设置基本信息 (防止详情加载慢导致显示为空)
     form.value = {
       id: newData.id,
       name: newData.name,
       job_type: newData.job_type || 'FreeStyle',
       description: newData.description || '',
       is_active: newData.is_active !== false,
-      config_xml: newData.config_xml || '',
+      config_xml: newData.config_xml || '', // 可能为空
       project: newData.project || null,
-      environments: newData.environments || [],  // 处理环境ID数组
+      environments: newData.environments || [],
       plan: newData.plan || null,
-      target_node: newData.target_node || null,  // 加载节点数据
-      pipeline_config: newData.pipeline_config || {},  // 加载 Pipeline 配置
-      use_visual_builder: true  // 默认使用可视化构建器
+      target_node: newData.target_node || null,
+      pipeline_config: newData.pipeline_config || {},
+      use_visual_builder: true
     }
+    
+    // 2. 如果是编辑模式，获取完整详情
+    if (newData.id) {
+      try {
+        loading.value = true
+        const res = await getJenkinsJobDetail(newData.id)
+        const detail = res.data.data
+        if (detail) {
+           // 合并详情中的配置信息
+           form.value.config_xml = detail.config_xml || ''
+           form.value.pipeline_config = detail.pipeline_config || {}
+           form.value.cron_enabled = detail.cron_enabled || false
+           form.value.cron_schedule = detail.cron_schedule || ''
+           
+           // 确保定时任务配置同步到 pipeline_config (如果是 Pipeline 且没有 pipeline_config.cron)
+           if (form.value.job_type === 'Pipeline') {
+               if (!form.value.pipeline_config.cron) {
+                   form.value.pipeline_config.cron = {
+                       enabled: detail.cron_enabled || false,
+                       schedule: detail.cron_schedule || ''
+                   }
+               }
+           }
+        }
+      } catch (error) {
+        console.error('获取 Job 详情失败:', error)
+      } finally {
+        loading.value = false
+      }
+    }
+
     xmlValidation.value = { valid: true, error: '' }
     forceEdit = false
     
@@ -606,6 +672,16 @@ const handleSave = async () => {
       if (form.value.use_visual_builder) {
         // 可视化模式：发送 pipeline_config，不发送 config_xml
         payload.pipeline_config = form.value.pipeline_config
+        
+        // 添加定时任务配置（始终发送，确保能正确更新为 false）
+        if (form.value.pipeline_config.cron && form.value.pipeline_config.cron.enabled) {
+          payload.cron_enabled = true
+          payload.cron_schedule = form.value.pipeline_config.cron.schedule || ''
+        } else {
+          // 未启用或不存在 cron 配置时，显式设置为 false
+          payload.cron_enabled = false
+          payload.cron_schedule = ''
+        }
       } else {
         // 高级模式：发送 config_xml
         payload.config_xml = form.value.config_xml
@@ -638,6 +714,77 @@ const handleSave = async () => {
   } finally {
     saving.value = false
   }
+}
+
+// 同步配置
+const handleSyncConfig = async () => {
+    if (!form.value.id) return
+    
+    try {
+        syncing.value = true
+        const res = await syncJenkinsJobConfig(form.value.id)
+        if (res.data.code === 200) {
+            const data = res.data.data
+            form.value.config_xml = data.config_xml
+            
+            // 处理 Pipeline 类型的配置同步
+            if (form.value.job_type === 'Pipeline') {
+                const parseable = data.parseable
+                const pipeline_config = data.pipeline_config
+                
+                if (parseable && pipeline_config) {
+                    // 成功解析为可视化配置
+                    form.value.pipeline_config = pipeline_config
+                    
+                    // 询问用户是否切换到可视化模式
+                    if (!form.value.use_visual_builder) {
+                        ElMessageBox.confirm(
+                            '已成功解析 Jenkins Pipeline 配置！是否切换到可视化模式查看？',
+                            '✅ 同步成功',
+                            {
+                                confirmButtonText: '切换到可视化',
+                                cancelButtonText: '保持高级模式',
+                                type: 'success'
+                            }
+                        ).then(() => {
+                            form.value.use_visual_builder = true
+                            ElMessage.success('已切换到可视化模式')
+                        }).catch(() => {
+                            ElMessage.info('已保持高级模式')
+                        })
+                    } else {
+                        ElMessage.success('配置已从 Jenkins 同步，可视化模式已更新')
+                    }
+                } else {
+                    // 无法解析为可视化配置（复杂 Pipeline）
+                    if (form.value.use_visual_builder) {
+                        form.value.use_visual_builder = false
+                        ElMessage.warning('该 Pipeline 过于复杂，已自动切换到高级模式')
+                    } else {
+                        ElMessage.success('配置已从 Jenkins 同步')
+                    }
+                }
+            } else {
+                ElMessage.success('配置已从 Jenkins 同步')
+            }
+            
+            // 如果处于高级模式，触发验证
+            if (!form.value.use_visual_builder && form.value.config_xml) {
+                 nextTick(() => {
+                     if (aceEditorRef.value && aceEditorRef.value.editor) {
+                        validateXmlInEditor(aceEditorRef.value.editor)
+                     }
+                 })
+            }
+        } else {
+            ElMessage.error(res.data.message || '同步失败')
+        }
+    } catch (error) {
+        console.error(error)
+        ElMessage.error(error.message || '同步失败')
+    } finally {
+        syncing.value = false
+    }
 }
 
 // 处理 XML 错误（后端验证失败）

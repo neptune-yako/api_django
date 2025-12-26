@@ -7,6 +7,10 @@ from ..serializers import JenkinsJobSerializer
 from backend.pagination import MyPaginator
 import logging
 
+from rest_framework.decorators import action
+from ..jenkins_client import get_jenkins_client
+import logging
+
 logger = logging.getLogger(__name__)
 # 本地 Job 管理
 class JenkinsJobViewSet(mixins.RetrieveModelMixin,
@@ -70,6 +74,71 @@ class JenkinsJobViewSet(mixins.RetrieveModelMixin,
             return R.success(message="关联信息已更新", data=serializer.data)
         except Exception as e:
             return R.error(message=str(e))
+
+    @action(detail=True, methods=['post'], url_path='sync-config')
+    def sync_config(self, request, pk=None):
+        """同步 Jenkins Job 的配置 (Config XML) 并尝试解析为可视化配置"""
+        try:
+            job = self.get_object()
+            
+            # 检查服务器连接
+            if not job.server.is_active or job.server.connection_status != 'connected':
+                 return R.error(message="服务器未连接或已禁用")
+
+            # 连接 Jenkins
+            client = get_jenkins_client(
+                job.server.url,
+                job.server.username,
+                job.server.token
+            )
+            
+            # 确认 Job 存在
+            if not client.job_exists(job.name):
+                 return R.error(message=f"Jenkins 上找不到 Job: {job.name}")
+                 
+            # 获取配置
+            config_xml = client.get_job_config(job.name)
+            if not config_xml:
+                return R.error(message="无法获取配置 XML")
+            
+            # 保存 config_xml
+            job.config_xml = config_xml
+            
+            # 尝试解析为 pipeline_config（仅 Pipeline 类型）
+            pipeline_config = None
+            parseable = False
+            
+            if job.job_type == 'Pipeline':
+                try:
+                    from ..pipeline_generator.parser import parse_config_xml_to_pipeline_config
+                    parsed = parse_config_xml_to_pipeline_config(config_xml)
+                    
+                    if parsed and parsed.get('parseable'):
+                        pipeline_config = {
+                            'type': parsed['type'],
+                            parsed['type']: parsed.get(parsed['type'], {})
+                        }
+                        job.pipeline_config = pipeline_config
+                        parseable = True
+                        logger.info(f"成功解析 Pipeline 脚本为可视化配置: {parsed['type']}")
+                    else:
+                        logger.info("Pipeline 脚本无法解析为可视化配置（可能过于复杂）")
+                except Exception as e:
+                    logger.warning(f"解析 Pipeline 配置失败: {e}")
+            
+            job.save()
+            
+            response_data = {
+                'config_xml': config_xml,
+                'pipeline_config': pipeline_config,
+                'parseable': parseable
+            }
+            
+            return R.success(data=response_data, message="配置已从 Jenkins 同步")
+                 
+        except Exception as e:
+            logger.error(f"同步 Job 配置失败: {str(e)}")
+            return R.error(message=f"同步失败: {str(e)}")
 
 class SyncJenkinsJobsView(APIView):
     """
