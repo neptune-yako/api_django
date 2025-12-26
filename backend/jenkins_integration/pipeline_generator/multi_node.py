@@ -307,7 +307,7 @@ class ParentJobGenerator(BasePipelineGenerator):
 
 def create_pipeline_generator(
     config: Dict[str, Any],
-    multi_node_mode: str = 'label',
+    multi_node_mode: str = 'matrix',
     use_custom_stages: bool = False
 ) -> BasePipelineGenerator:
     """
@@ -316,8 +316,8 @@ def create_pipeline_generator(
     Args:
         config: Job 配置字典
         multi_node_mode: 多节点模式
-            - 'label': 使用 label 指令（默认，推荐）agent { label 'node-1 node-2' }
-            - 'matrix': 使用 matrix 指令（声明式 Pipeline，需要 Jenkins 2.300+）
+            - 'matrix': 使用 matrix 指令（默认，推荐，需要 Jenkins 2.300+）
+            - 'label': 使用 label 指令  agent { label 'node-1 node-2' }
             - 'parallel': 并行执行（使用 parallel 指令）
             - 'parent': 父子 Job 模式
         use_custom_stages: 是否使用自定义 stages
@@ -325,7 +325,7 @@ def create_pipeline_generator(
     Returns:
         Pipeline 生成器实例
     """
-    from .base import SimplePipelineGenerator, CustomPipelineGenerator
+    from .base import SimplePipelineGenerator, CustomPipelineGenerator, CustomMatrixPipelineGenerator
 
     node_label = config.get('node_label', 'any')
 
@@ -340,27 +340,35 @@ def create_pipeline_generator(
     # 判断是否为多节点
     is_multi_node = len(node_label_list) > 1
 
-    # 使用 label 模式（默认）或自定义 stages
-    if multi_node_mode == 'label' or use_custom_stages:
-        if use_custom_stages and config.get('stages'):
-            logger.info(f"创建自定义 Pipeline 生成器（label 模式），节点: {node_label_list}")
-            return CustomPipelineGenerator(config)
+    # 自定义 stages 模式
+    if use_custom_stages and config.get('stages'):
+        if is_multi_node:
+            # 多节点 + 自定义 stages = CustomMatrixPipelineGenerator
+            logger.info(f"创建自定义Matrix Pipeline生成器，节点: {node_label_list}")
+            return CustomMatrixPipelineGenerator(config)
         else:
-            logger.info(f"创建简单 Pipeline 生成器（label 模式），节点: {node_label_list}")
-            return SimplePipelineGenerator(config)
+            # 单节点 + 自定义 stages = CustomPipelineGenerator
+            logger.info(f"创建自定义 Pipeline 生成器（单节点），节点: {node_label_list}")
+            return CustomPipelineGenerator(config)
+
+    # 使用 label 模式
+    if multi_node_mode == 'label':
+        logger.info(f"创建简单 Pipeline 生成器（label 模式），节点: {node_label_list}")
+        return SimplePipelineGenerator(config)
 
     # 多节点并行模式
     if is_multi_node:
         if multi_node_mode == 'parent':
             logger.info(f"创建父子 Job 模式生成器，节点: {node_label_list}")
             return ParentJobGenerator(config)
-        elif multi_node_mode == 'matrix':
-            logger.info(f"创建 Matrix Pipeline 生成器，节点: {node_label_list}")
-            return MatrixPipelineGenerator(config)
-        else:
+        elif multi_node_mode == 'parallel':
             # parallel 并行模式
             logger.info(f"创建多节点并行 Pipeline 生成器，节点: {node_label_list}")
             return MultiNodePipelineGenerator(config)
+        else:
+            # 默认使用 matrix 模式
+            logger.info(f"创建 Matrix Pipeline 生成器，节点: {node_label_list}")
+            return MatrixPipelineGenerator(config)
 
     # 单节点 fallback
     logger.info(f"创建简单单节点 Pipeline 生成器，节点: {node_label_list}")

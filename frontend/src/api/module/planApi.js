@@ -26,5 +26,29 @@ export default {
     // 运行测试计划
     runPlan(params) {
         return http.post('/plan/run/', params)
+    },
+    // 导出测试计划脚本
+    exportPlanScript(id, params) {
+        return http.post(`/plan/${id}/export_script/`, params, {
+            responseType: 'blob'
+        })
+    },
+    // 上传Python测试脚本
+    uploadScript(id, formData) {
+        return http.post(`/plan/${id}/upload_script/`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        })
+    },
+    // 下载测试脚本
+    downloadScript(id) {
+        return http.get(`/plan/${id}/download_script/`, {
+            responseType: 'blob'
+        })
+    },
+    // 解绑测试脚本
+    unbindScript(id, params) {
+        return http.post(`/plan/${id}/unbind_script/`, params)
     }
 }

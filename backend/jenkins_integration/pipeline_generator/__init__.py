@@ -4,7 +4,12 @@ Pipeline 生成器模块
 动态生成 Jenkins Pipeline 脚本，支持多节点并行执行
 """
 
-from .base import BasePipelineGenerator, SimplePipelineGenerator
+from .base import (
+    BasePipelineGenerator, 
+    SimplePipelineGenerator, 
+    CustomPipelineGenerator,
+    CustomMatrixPipelineGenerator
+)
 from .multi_node import (
     MultiNodePipelineGenerator,
     ParentJobGenerator,
@@ -15,8 +20,11 @@ from .multi_node import (
 __all__ = [
     'BasePipelineGenerator',
     'SimplePipelineGenerator',
+    'CustomPipelineGenerator',
+    'CustomMatrixPipelineGenerator',
     'MultiNodePipelineGenerator',
     'ParentJobGenerator',
     'MatrixPipelineGenerator',
     'create_pipeline_generator',
 ]
+

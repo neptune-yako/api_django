@@ -8,6 +8,33 @@ class Plan(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE, verbose_name="所属项目", related_name='plan')
     name = models.CharField(max_length=20, verbose_name='任务名称')
     scene = models.ManyToManyField(Scene, verbose_name='包含的测试套件', default=list)
+    
+    # Python测试脚本绑定
+    script_file = models.FileField(
+        upload_to='test_scripts/%Y/%m/',
+        null=True,
+        blank=True,
+        verbose_name="测试脚本文件"
+    )
+    script_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name="脚本文件名"
+    )
+    script_type = models.CharField(
+        max_length=20,
+        choices=[('exported', '导出'), ('uploaded', '上传')],
+        null=True,
+        blank=True,
+        verbose_name="脚本来源"
+    )
+    script_bind_time = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="脚本绑定时间"
+    )
+    
     create_time = models.DateTimeField(auto_now_add=True, verbose_name="创建日期")
     update_time = models.DateTimeField(auto_now=True, verbose_name="更新日期")
     username = models.CharField(max_length=20, verbose_name="计划创建人")
