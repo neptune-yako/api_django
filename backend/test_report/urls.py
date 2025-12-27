@@ -4,7 +4,8 @@ from .views import (
     SyncJobBuildsView,
     TaskStatusView,
     TestExecutionListView,
-    TestExecutionDetailView
+    TestExecutionDetailView,
+    TestSuiteDetailListView
 )
 
 urlpatterns = [
@@ -20,4 +21,7 @@ urlpatterns = [
     # 测试执行记录查询
     path('executions/', TestExecutionListView.as_view(), name='execution_list'),
     path('executions/<int:execution_id>/', TestExecutionDetailView.as_view(), name='execution_detail'),
+    
+    # 测试用例详情查询
+    path('executions/<int:execution_id>/cases/', TestSuiteDetailListView.as_view(), name='suite_detail_list'),
 ]

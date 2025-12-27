@@ -2,7 +2,7 @@ import logging
 from django.db import transaction
 from typing import Optional
 from jenkins_integration.models import JenkinsJob
-from test_report.models import TestExecution, TestSuite, Category, FeatureScenario
+from test_report.models import TestExecution, TestSuite, TestSuiteDetail, Category, FeatureScenario
 from test_report.utils.allure_client import AllureClient
 
 logger = logging.getLogger('django')
@@ -41,28 +41,19 @@ class TestReportService:
         if not summary_data:
             logger.error(f"[TestReport] Failed to fetch summary for {jenkins_job.name} #{build_number}")
             return None
+        
+        # 验证必要字段
+        required_fields = ['total_cases', 'passed_cases', 'failed_cases']
+        if not all(field in summary_data for field in required_fields):
+            logger.error(f"[TestReport] Summary data missing required fields: {required_fields}")
+            return None
             
-        # 4. 创建 TestExecution (如果是重新同步，先删除旧记录?)
-        # 策略：timestamp 是唯一的，我们用 job_name + build_number 作为 timestamp 的一部分或者直接使用
-        # 甲方 SQL 定义 timestamp 为 unique varchar(20)
-        # 建议使用 "{job_id}_{build_number}" 或 Jenkins 原始 timestamp
-        # 这里为了唯一性，我们使用构建的时间戳，如果 summary 里有的话，或者构造一个唯一的 ID
-        
-        # 为了防止重复导入，先检查是否存在
-        # 这里假设 timestamp 使用 Build Number 的唯一标识，或者如果是 timestamp 字段，它就是时间
-        # 让我们使用 summary_data['start_time'] 的时间戳作为 timestamp，
-        # 但要注意可能有多个 job 在同一秒开始？
-        # 更稳健的方法：生成一个唯一的 key: f"{jenkins_job.id}-{build_number}" 存入 timestamp 字段
-        # 或者复用 SQL 的意图：timestamp 只是一个时间戳。
-        # 让我们暂且使用 Jenkins 的 Start Timestamp (ms)
-        
-        ts_value = str(int(summary_data['start_time'].timestamp() * 1000)) if summary_data['start_time'] else str(build_number)
-        
-        # 如果已经存在相同时间戳的记录，决定是跳过还是更新。
-        # 这里选择：如果存在且 job 相同，则更新；否则创建。
-        # 但 timestamp 是 unique 的，会有冲突。
-        # 实战修正：我们生成一个组合键存入 timestamp 以避免冲突: "{job_id}_{build_number}"
-        unique_timestamp = f"{jenkins_job.id}_{build_number}" 
+        # 4. 生成唯一的 timestamp
+        # 使用 start_time 转为简洁格式 (YYYYMMDDHHMMSS) 或使用 job_id + build_number 组合
+        if summary_data.get('start_time'):
+            unique_timestamp = summary_data['start_time'].strftime('%Y%m%d%H%M%S')
+        else:
+            unique_timestamp = f"{jenkins_job.id}_{build_number}" 
         
         # 删除旧数据 (如果存在)
         TestExecution.objects.filter(timestamp=unique_timestamp).delete()
@@ -74,26 +65,49 @@ class TestReportService:
             **summary_data
         )
         
-        # 5. 获取并保存 Suites
-        suites_data = client.get_suites()
-        suites_objects = []
-        for s_data in suites_data:
-            suites_objects.append(TestSuite(execution=execution, **s_data))
-        TestSuite.objects.bulk_create(suites_objects)
+        # 5. 获取并保存 Suites (汇总数据)
+        try:
+            suites_data = client.get_suites()
+            suites_objects = []
+            for s_data in suites_data:
+                suites_objects.append(TestSuite(execution=execution, **s_data))
+            TestSuite.objects.bulk_create(suites_objects)
+            logger.info(f"[TestReport] Saved {len(suites_objects)} test suites")
+        except Exception as e:
+            logger.warning(f"[TestReport] Failed to fetch/save suites: {e}")
         
-        # 6. 获取并保存 Categories
-        categories_data = client.get_categories()
-        cat_objects = []
-        for c_data in categories_data:
-            cat_objects.append(Category(execution=execution, **c_data))
-        Category.objects.bulk_create(cat_objects)
+        # 6. 获取并保存 TestSuiteDetails (用例详情) ⭐ 新增
+        try:
+            suite_details_data = client.get_suite_details()
+            detail_objects = []
+            for detail_data in suite_details_data:
+                detail_objects.append(TestSuiteDetail(execution=execution, **detail_data))
+            TestSuiteDetail.objects.bulk_create(detail_objects)
+            logger.info(f"[TestReport] Saved {len(detail_objects)} test case details")
+        except Exception as e:
+            logger.warning(f"[TestReport] Failed to fetch/save suite details: {e}")
         
-        # 7. 获取并保存 FeatureScenarios
-        scenarios_data = client.get_behaviors()
-        scn_objects = []
-        for scn_data in scenarios_data:
-            scn_objects.append(FeatureScenario(execution=execution, **scn_data))
-        FeatureScenario.objects.bulk_create(scn_objects)
+        # 7. 获取并保存 Categories
+        try:
+            categories_data = client.get_categories()
+            cat_objects = []
+            for c_data in categories_data:
+                cat_objects.append(Category(execution=execution, **c_data))
+            Category.objects.bulk_create(cat_objects)
+            logger.info(f"[TestReport] Saved {len(cat_objects)} categories")
+        except Exception as e:
+            logger.warning(f"[TestReport] Failed to fetch/save categories: {e}")
+        
+        # 8. 获取并保存 FeatureScenarios
+        try:
+            scenarios_data = client.get_behaviors()
+            scn_objects = []
+            for scn_data in scenarios_data:
+                scn_objects.append(FeatureScenario(execution=execution, **scn_data))
+            FeatureScenario.objects.bulk_create(scn_objects)
+            logger.info(f"[TestReport] Saved {len(scn_objects)} feature scenarios")
+        except Exception as e:
+            logger.warning(f"[TestReport] Failed to fetch/save scenarios: {e}")
         
         logger.info(f"[TestReport] Successfully saved report for {jenkins_job.name} #{build_number}, Execution ID: {execution.id}")
         return execution

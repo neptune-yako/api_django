@@ -195,6 +195,129 @@ class AllureClient:
             
         return scenarios_result
 
+    # ==================== 5. TestSuiteDetail (用例详情) ====================
+    def get_suite_details(self) -> List[Dict]:
+        """
+        获取测试用例详情数据 (对应 TestSuiteDetail 表)
+        数据源: data/suites.json
+        逻辑: 递归遍历树形结构，提取所有叶子节点（测试用例）的详细信息
+        """
+        data = self._get_json("data/suites.json")
+        if not data:
+            return []
+
+        details_result = []
+        
+        # 递归提取所有测试用例
+        self._extract_test_cases(
+            node=data,
+            parent_suite='',
+            suite='',
+            sub_suite='',
+            details_list=details_result
+        )
+        
+        return details_result
+
+    def _extract_test_cases(
+        self, 
+        node: Dict, 
+        parent_suite: str,
+        suite: str,
+        sub_suite: str,
+        details_list: List[Dict]
+    ):
+        """
+        递归提取测试用例详情
+        
+        :param node: 当前节点
+        :param parent_suite: 父套件名称（第一层）
+        :param suite: 套件名称（第二层）
+        :param sub_suite: 子套件名称（第三层）
+        :param details_list: 结果列表（引用传递）
+        """
+        if not isinstance(node, dict):
+            return
+        
+        # 获取当前节点名称
+        current_name = node.get('name', '')
+        
+        # 判断是否为叶子节点（测试用例）
+        # 叶子节点特征：没有 children 或 children 为空
+        children = node.get('children', [])
+        
+        if not children:
+            # 这是一个测试用例（叶子节点）
+            time_data = node.get('time', {})
+            start_ms = time_data.get('start', 0)
+            stop_ms = time_data.get('stop', 0)
+            duration_ms = time_data.get('duration', 0)
+            
+            # 提取测试类和方法（如果有的话）
+            # Allure 通常在 labels 中存储这些信息
+            test_class = ''
+            test_method = ''
+            labels = node.get('labels', [])
+            for label in labels:
+                if isinstance(label, dict):
+                    if label.get('name') == 'testClass':
+                        test_class = label.get('value', '')
+                    elif label.get('name') == 'testMethod':
+                        test_method = label.get('value', '')
+            
+            # 如果 labels 中没有，尝试从 name 中解析
+            # 通常格式为 "ClassName.method_name" 或 "method_name"
+            if not test_method and current_name:
+                if '.' in current_name:
+                    parts = current_name.rsplit('.', 1)
+                    test_class = test_class or parts[0]
+                    test_method = parts[1]
+                else:
+                    test_method = current_name
+            
+            details_list.append({
+                'name': current_name,
+                'description': node.get('description', ''),
+                'parent_suite': parent_suite,
+                'suite': suite,
+                'sub_suite': sub_suite,
+                'test_class': test_class,
+                'test_method': test_method,
+                'status': node.get('status', 'unknown'),
+                'start_time': str(start_ms) if start_ms else '',
+                'stop_time': str(stop_ms) if stop_ms else '',
+                'duration_in_ms': duration_ms
+            })
+        else:
+            # 这是一个容器节点，继续递归
+            # 根据层级深度更新 parent_suite, suite, sub_suite
+            # 简化逻辑：第一层为 parent_suite，第二层为 suite，第三层为 sub_suite
+            
+            if not parent_suite:
+                # 第一层
+                new_parent = current_name
+                new_suite = suite
+                new_sub = sub_suite
+            elif not suite:
+                # 第二层
+                new_parent = parent_suite
+                new_suite = current_name
+                new_sub = sub_suite
+            else:
+                # 第三层及以后
+                new_parent = parent_suite
+                new_suite = suite
+                new_sub = current_name
+            
+            for child in children:
+                self._extract_test_cases(
+                    node=child,
+                    parent_suite=new_parent,
+                    suite=new_suite,
+                    sub_suite=new_sub,
+                    details_list=details_list
+                )
+
     # ==================== 辅助方法 === =================
     def _aggregate_node_stats(self, node: Dict) -> Dict:
         """递归统计一个节点及其子节点的所有 Case 数据"""
