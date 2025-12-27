@@ -42,3 +42,12 @@ export function getExecutionList(params) {
 export function getExecutionDetail(id) {
     return http({ url: `/api/test-report/executions/${id}/`, method: 'get' })
 }
+
+/**
+ * 查询测试用例列表
+ * @param {Number} executionId - 执行记录 ID
+ * @param {Object} params - { parent_suite, status }
+ */
+export function getCaseList(executionId, params) {
+    return http({ url: `/api/test-report/executions/${executionId}/cases/`, method: 'get', params })
+}

@@ -80,23 +80,9 @@ request.interceptors.response.use(
         }
 
         // ========== 处理特殊 HTTP 状态码（401、404、500）==========
-        // 注意: 由于 validateStatus 已优化，这些状态码通常会进入 error 拦截器
-        // 但保留此处代码以防万一（例如某些中间件可能直接返回）
-
-        // 401 未授权: 清除 token，跳转登录页
-        if (response.status === 401 && response.config.url !== '/login/' && response.config.url !== '/register/' && response.config.url !== '/verify/' && response.config.url !== '/refresh/') {
-            window.localStorage.removeItem('token')
-            ElNotification({
-                title: '请求失败',
-                message: 'token已过期或者未传递过去，您无权限访问接口:' + response.config.url,
-                type: 'error',
-                duration: 1500
-            })
-            // 路由跳转到登录页面
-            router.push({
-                name: 'login'
-            })
-        }
+        // 注意: 由于 validateStatus 只允许 2xx，401/404/500 会进入 error 拦截器
+        // 这里的代码实际上不可达，但为了代码清晰，我们将这部分逻辑移到 verifyStatus 或 error 拦截器中
+        // (已移除不可达的 401 代码)
 
         // ==================== 修改点 3: 移除 404 清除 token ====================
         // 404 只是接口地址错误，不应清除登录状态
@@ -145,6 +131,29 @@ request.interceptors.response.use(
         // 需要提取 detail 字段并显示给用户
         const status = error.response?.status
         const detail = error.response?.data?.detail
+
+        // 401 未授权: 清除 token，跳转登录页
+        // 注意：排除登录/注册/校验接口，避免死循环
+        if (status === 401) {
+            const config = error.response?.config || {}
+            if (config.url !== '/login/' && config.url !== '/register/' && config.url !== '/verify/' && config.url !== '/refresh/') {
+                // 清除 Pinia 状态和 LocalStorage
+                const ustore = UserStore()
+                ustore.userInfo.token = ''
+                window.localStorage.removeItem('token')
+
+                ElNotification({
+                    title: '登录失效',
+                    message: '您的登录凭证已过期，请重新登录',
+                    type: 'error',
+                    duration: 1500
+                })
+
+                // 路由跳转到登录页面
+                router.push({ name: 'login' })
+                return Promise.reject(error)
+            }
+        }
 
         if (status === 400 && detail) {
             // 参数错误 (其他模块)
