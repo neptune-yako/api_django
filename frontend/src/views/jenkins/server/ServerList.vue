@@ -3,7 +3,7 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span class="title">Jenkins 服务器管理</span>
+          <span class="title">自动化服务器管理</span>
           <el-button type="primary" @click="handleAdd">
             <el-icon class="el-icon--left"><Plus /></el-icon>添加服务器
           </el-button>
@@ -17,7 +17,7 @@
         border
       >
         <el-table-column prop="name" label="服务器名称" width="180" />
-        <el-table-column prop="url" label="Jenkins URL" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="url" label="服务器 URL" min-width="200" show-overflow-tooltip />
         <el-table-column prop="username" label="用户名" width="120" />
         <el-table-column prop="is_active" label="状态" width="100">
           <template #default="scope">
@@ -69,7 +69,7 @@
     <!-- 添加/编辑对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="dialogType === 'add' ? '添加 Jenkins 服务器' : '编辑 Jenkins 服务器'"
+      :title="dialogType === 'add' ? '添加自动化服务器' : '编辑自动化服务器'"
       width="500px"
       @close="resetForm"
     >
@@ -162,7 +162,7 @@ const rules = computed(() => {
   const commonRules = {
     name: [{ required: true, message: '请输入服务器名称', trigger: 'blur' }],
     url: [
-      { required: true, message: '请输入 Jenkins URL', trigger: 'blur' },
+      { required: true, message: '请输入服务器 URL', trigger: 'blur' },
       { type: 'url', message: '请输入有效的 URL', trigger: 'blur' }
     ],
     username: [{ required: true, message: '请输入用户名', trigger: 'blur' }]

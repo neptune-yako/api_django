@@ -60,7 +60,7 @@
       </el-tab-pane>
 
       <!-- Jenkins 定时任务 -->
-      <el-tab-pane label="Jenkins 定时任务" name="jenkins">
+      <el-tab-pane label="自动化定时任务" name="jenkins">
         <el-button plain @click='getCronjob' type="success" icon="Refresh" size="small">刷新</el-button>
         
         <el-table :data="jenkinsJobs" style="width: 100%; margin-top: 10px" stripe 
@@ -69,16 +69,16 @@
           <template #empty>
             <div class="table-empty">
               <img src="@/assets/images/none.png" alt="notData"/>
-              <div>暂无 Jenkins 定时任务</div>
+              <div>暂无自动化定时任务</div>
             </div>
           </template>
           <el-table-column label="序号" type="index" width="90"></el-table-column>
-          <el-table-column prop="name" label="Job 名称" min-width="180">
+          <el-table-column prop="name" label="任务名称" min-width="180">
             <template #default="scope">
               <el-link type="primary" @click="navigateToJob(scope.row.id)">{{ scope.row.name }}</el-link>
             </template>
           </el-table-column>
-          <el-table-column prop="server_name" label="Jenkins 服务器" min-width="140"></el-table-column>
+          <el-table-column prop="server_name" label="自动化服务器" min-width="140"></el-table-column>
           <el-table-column prop="project_name" label="项目" min-width="120"></el-table-column>
           <el-table-column prop="plan_name" label="计划" min-width="120"></el-table-column>
           <el-table-column prop="cron_schedule" label="Cron 表达式" min-width="140"></el-table-column>
@@ -91,7 +91,7 @@
               <span v-else>-</span>
             </template>
           </el-table-column>
-          <el-table-column label="Job状态" width="90">
+          <el-table-column label="任务状态" width="90">
             <template #default="scope">
               <el-switch 
                 v-model="scope.row.is_active" 
@@ -268,7 +268,7 @@ async function toggleJenkinsCron(job) {
     if (response.data.code === 200) {
       ElNotification({
         type: 'success',
-        title: job.is_active ? 'Jenkins Job 已启用' : 'Jenkins Job 已禁用',
+        title: job.is_active ? '自动化任务已启用' : '自动化任务已禁用',
         duration: 1500
       })
       // 不刷新列表，保持响应式绑定
