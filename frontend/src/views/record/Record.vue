@@ -1,7 +1,12 @@
 <template>
   <div class="record-wrapper">
     <el-tabs v-model="activeTab" type="border-card" class="record-tabs">
-      <!-- Tab 1: 原有测试记录 -->
+      <!-- Tab 1: 自动化测试报告 -->
+      <el-tab-pane label="自动化测试报告" name="jenkins-report">
+        <ReportList />
+      </el-tab-pane>
+
+      <!-- Tab 2: 测试记录 -->
       <el-tab-pane label="测试记录" name="record">
         <!-- 渲染图标的元素 -->
         <div class="card chart">
@@ -73,11 +78,6 @@
         </div>
       </div>
       </el-tab-pane>
-
-      <!-- Tab 2: 自动化测试报告 -->
-      <el-tab-pane label="自动化测试报告" name="jenkins-report">
-        <ReportList />
-      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
@@ -99,7 +99,7 @@ const isDark = useDark()
 const router = useRouter()
 
 // Tab 切换状态
-const activeTab = ref('record') // 默认显示测试记录
+const activeTab = ref('jenkins-report') // 默认显示自动化测试报告
 // 存储项目的执行记录
 let recordList = ref([])
 
