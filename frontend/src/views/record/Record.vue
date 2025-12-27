@@ -1,11 +1,14 @@
 <template>
-  <div class="main">
-    <!-- 渲染图标的元素 -->
-    <div class="card chart">
-      <div id="chart_record" class="box1" style="height: 250px"></div>
-    </div>
-    <div class="card table" style="padding: 10px;">
-      <el-button plain @click='getRecords' type="success" icon="Refresh" size="small">刷新</el-button>
+  <div class="record-wrapper">
+    <el-tabs v-model="activeTab" type="border-card" class="record-tabs">
+      <!-- Tab 1: 原有测试记录 -->
+      <el-tab-pane label="测试记录" name="record">
+        <!-- 渲染图标的元素 -->
+        <div class="card chart">
+          <div id="chart_record" class="box1" style="height: 250px"></div>
+        </div>
+        <div class="card table" style="padding: 10px;">
+          <el-button plain @click='getRecords' type="success" icon="Refresh" size="small">刷新</el-button>
       <!-- 渲染表格的组价 -->
       <el-table :data="recordList" style="width: 100%;" stripe :header-cell-style="{'text-align':'center'}"
                 :cell-style="{'text-align':'center'}" v-loading="loading" element-loading-text="加载中...">
@@ -67,8 +70,15 @@
             @current-change="getRecords"
             @size-change="getRecords"
         />
+        </div>
       </div>
-    </div>
+      </el-tab-pane>
+
+      <!-- Tab 2: Jenkins 测试报告 -->
+      <el-tab-pane label="Jenkins 测试报告" name="jenkins-report">
+        <ReportList />
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
@@ -81,11 +91,15 @@ import {ref, onMounted, reactive} from 'vue'
 import {useRouter} from 'vue-router'
 import {ElMessage, ElMessageBox, ElNotification} from 'element-plus'
 import {useDark} from '@vueuse/core'
+import ReportList from '@/views/jenkins/report/ReportList.vue'
 
 // 注入暗黑模式状态
 const isDark = useDark()
 
 const router = useRouter()
+
+// Tab 切换状态
+const activeTab = ref('record') // 默认显示测试记录
 // 存储项目的执行记录
 let recordList = ref([])
 
@@ -184,4 +198,15 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.record-wrapper {
+  padding: 0;
+}
+
+.record-tabs {
+  margin: 0;
+}
+
+.record-tabs :deep(.el-tabs__content) {
+  padding: 20px;
+}
 </style>
