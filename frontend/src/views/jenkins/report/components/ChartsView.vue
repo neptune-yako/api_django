@@ -61,15 +61,16 @@ const initStatusPieChart = () => {
     },
     legend: {
       orient: 'horizontal',
-      bottom: '5%',
-      left: 'center'
+      bottom: '3%',
+      left: 'center',
+      itemGap: 20
     },
     series: [
       {
         name: '用例状态',
         type: 'pie',
-        radius: ['40%', '70%'], // 环形图
-        center: ['50%', '45%'],
+        radius: ['50%', '75%'], // 增大环形图半径
+        center: ['50%', '48%'],
         data: [
           { 
             value: props.execution.passed_cases || 0, 
@@ -105,7 +106,8 @@ const initStatusPieChart = () => {
           }
         },
         label: {
-          fontSize: 14,
+          fontSize: 16,
+          fontWeight: 'bold',
           formatter: '{b}\n{c} ({d}%)'
         }
       }
@@ -133,10 +135,10 @@ const initSuiteBarChart = () => {
       formatter: '{b}<br/>通过率: {c}%'
     },
     grid: {
-      left: '5%',
-      right: '5%',
-      bottom: '15%',
-      top: '10%',
+      left: '3%',
+      right: '3%',
+      bottom: '12%',
+      top: '8%',
       containLabel: true
     },
     xAxis: {
@@ -170,15 +172,16 @@ const initSuiteBarChart = () => {
         itemStyle: {
           color: (params) => {
             const rate = params.value
-            if (rate >= 90) return '#67c23a' // 绿色
-            if (rate >= 70) return '#e6a23c' // 黄色
+            if (rate >= 80) return '#67c23a' // 绿色
+            if (rate >= 60) return '#e6a23c' // 黄色
             return '#f56c6c' // 红色
           }
         },
         label: {
           show: true,
           position: 'top',
-          fontSize: 12,
+          fontSize: 14,
+          fontWeight: 'bold',
           formatter: '{c}%'
         }
       }
