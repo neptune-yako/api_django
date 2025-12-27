@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="dialogVisible"
-    title="创建 Jenkins Job"
+    title="创建自动化任务"
     width="900px"
     :close-on-click-modal="false"
   >
@@ -15,10 +15,10 @@
       <!-- 基本信息 -->
       <el-divider content-position="left">基本信息</el-divider>
       
-      <el-form-item label="Jenkins 服务器" prop="server">
+      <el-form-item label="自动化服务器" prop="server">
         <el-select 
           v-model="form.server" 
-          placeholder="选择 Jenkins 服务器" 
+          placeholder="选择自动化服务器" 
           style="width: 100%"
         >
           <el-option
@@ -33,7 +33,7 @@
         </el-select>
       </el-form-item>
       
-      <el-form-item label="Job 名称" prop="name">
+      <el-form-item label="任务名称" prop="name">
         <el-input
           v-model="form.name"
           placeholder="输入 Job 名称（英文、数字、下划线）"
@@ -49,20 +49,20 @@
           </template>
         </el-input>
         <span style="font-size: 12px; color: #909399; display: block; margin-top: 5px">
-          ⚠️ Job 名称创建后不可修改 | 点击右侧按钮生成时间戳名称
+          ⚠️ 任务名称创建后不可修改 | 点击右侧按钮生成时间戳名称
         </span>
       </el-form-item>
       
-      <el-form-item label="Job 类型" prop="job_type">
+      <el-form-item label="任务类型" prop="job_type">
         <el-select 
           v-model="form.job_type" 
-          placeholder="选择 Job 类型" 
+          placeholder="选择任务类型" 
           style="width: 100%"
           @change="handleTypeChange"
         >
           <el-option label="Pipeline (流水线)" value="Pipeline">
             <el-tag type="success" size="small">Pipeline</el-tag>
-            <span style="margin-left: 10px; color: #909399">使用 Jenkinsfile 定义流程</span>
+            <span style="margin-left: 10px; color: #909399">使用流水线脚本定义流程</span>
           </el-option>
           <el-option label="FreeStyle (自由风格)" value="FreeStyle">
             <el-tag type="primary" size="small">FreeStyle</el-tag>
@@ -83,7 +83,7 @@
           v-model="form.description"
           type="textarea"
           :rows="3"
-          placeholder="输入 Job 描述"
+          placeholder="输入任务描述"
           maxlength="500"
           show-word-limit
         />
@@ -328,7 +328,7 @@ const pipelineConfig = ref({})
 // 表单验证
 const rules = {
   server: [
-    { required: true, message: '请选择 Jenkins 服务器', trigger: 'change' }
+    { required: true, message: '请选择自动化服务器', trigger: 'change' }
   ],
   name: [
     { required: true, message: 'Job 名称不能为空', trigger: 'blur' },

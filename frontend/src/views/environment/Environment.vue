@@ -17,7 +17,7 @@
             <span v-if='item.name.length < 15'>{{ item.name }}</span>
             <span v-else>{{ item.name.slice(0, 15) }}...</span>
           </div>
-          <!-- 显示Jenkins节点信息 -->
+          <!-- 显示自动化节点信息 -->
           <div v-if="getMatchedNode(item)" style="display: flex; align-items: center; gap: 6px;">
             <span class="status-dot" :style="{ backgroundColor: getNodeColor(getMatchedNode(item)) }"></span>
             
@@ -41,12 +41,12 @@
       <el-input v-model="env_host" placeholder="请输入base_url" style="margin-top: 5px;" clearable>
         <template #prepend>服务器域名/IP</template>
       </el-input>
-      <!-- Jenkins节点信息显示 -->
+      <!-- 自动化节点信息显示 -->
       <div v-if="getMatchedNode(EnvInfo)" style="margin-top: 10px; padding: 10px; background-color: #f5f7fa; border-radius: 4px; border-left: 3px solid" :style="{ borderLeftColor: getNodeColor(getMatchedNode(EnvInfo)) }">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="status-dot" :style="{ backgroundColor: getNodeColor(getMatchedNode(EnvInfo)) }"></span>
-            <span style="font-weight: bold; color: #303133;">Jenkins节点: {{ getMatchedNode(EnvInfo).display_name }}</span>
+            <span style="font-weight: bold; color: #303133;">自动化节点: {{ getMatchedNode(EnvInfo).display_name }}</span>
           </div>
           <!-- 节点管理操作按钮组 -->
           <el-button-group size="small">
@@ -140,8 +140,8 @@
         </div>
       </el-tab-pane>
       
-      <!-- 创建Jenkins节点选项卡 -->
-      <el-tab-pane label="Jenkins节点" name="node">
+      <!-- 创建自动化节点选项卡 -->
+      <el-tab-pane label="自动化节点" name="node">
         <div style="padding: 20px;">
           <el-alert
             title="提示"
@@ -150,7 +150,7 @@
             show-icon
             style="margin-bottom: 20px;"
           >
-            创建一个新的 Jenkins SSH 节点，需要确保目标机器已安装 Java 并配置 SSH
+            创建一个新的自动化 SSH 节点，需要确保目标机器已安装 Java 并配置 SSH
           </el-alert>
           
           <el-form :model="createNodeForm" :rules="createNodeRules" ref="createNodeFormRef" label-width="120px">
@@ -201,7 +201,7 @@
                       </div>
                     </el-option>
                   </el-select>
-                  <span style="font-size: 12px; color: #909399;">点击"刷新凭证列表"按钮从Jenkins获取</span>
+                  <span style="font-size: 12px; color: #909399;">点击"刷新凭证列表"按钮从服务器获取</span>
                 </el-form-item>
                 
                 <el-form-item label="SSH端口">
@@ -243,7 +243,7 @@
   <!-- 修改IP对话框 -->
   <el-dialog 
     v-model="editIPDialogVisible" 
-    title="修改Jenkins节点IP" 
+    title="修改自动化节点IP" 
     width="500px"
     :close-on-click-modal="false"
   >
@@ -297,7 +297,7 @@
   <!-- 节点详情对话框 -->
   <el-dialog 
     v-model="nodeInfoDialogVisible" 
-    title="Jenkins节点详情" 
+    title="自动化节点详情" 
     width="600px"
   >
     <el-descriptions :column="2" border v-if="currentNodeInfo">

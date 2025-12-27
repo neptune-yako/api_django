@@ -4,7 +4,7 @@
       <template #header>
         <div class="card-header">
           <div class="left-actions">
-            <span class="title">Jenkins 任务管理</span>
+            <span class="title">自动化任务管理</span>
           </div>
           <div class="right-actions">
             <el-input
@@ -67,7 +67,7 @@
             </el-button>
           </div>
             <el-button type="primary" @click="handleCreate">
-              <el-icon class="el-icon--left"><Plus /></el-icon>创建 Job
+              <el-icon class="el-icon--left"><Plus /></el-icon>创建任务
             </el-button>
           </div>
         </div>
@@ -392,7 +392,7 @@ const handlePageChange = (newPage) => {
 const handleSync = async () => {
   // 校验是否选择了服务器
   if (!selectedServerId.value) {
-    ElMessage.warning('请先选择要同步的 Jenkins 服务器')
+    ElMessage.warning('请先选择要同步的自动化服务器')
     return
   }
   
@@ -436,7 +436,7 @@ const handleSync = async () => {
 const handleCleanup = async () => {
   // 校验是否选择了服务器
   if (!selectedServerId.value) {
-    ElMessage.warning('请先选择要清理的 Jenkins 服务器')
+    ElMessage.warning('请先选择要清理的自动化服务器')
     return
   }
   
@@ -504,8 +504,8 @@ const pollTaskStatus = async (taskId, taskType = 'sync') => {
       
       if (status === 'SUCCESS') {
         const successMsg = taskType === 'cleanup' 
-          ? '✅ Jenkins Job 清理完成，已自动刷新列表'
-          : '✅ Jenkins Job 同步完成，已自动刷新列表'
+          ? '✅ 自动化任务清理完成，已自动刷新列表'
+          : '✅ 自动化任务同步完成，已自动刷新列表'
         ElMessage.success(successMsg)
         if (taskType === 'cleanup') {
           cleaning.value = false

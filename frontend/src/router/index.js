@@ -157,12 +157,12 @@ const routes = [
                     iconImg: new URL('@/assets/icons/role.png', import.meta.url).href
                 }
             },
-            // Jenkins CI/CD 管理
+            // 自动化管理
             {
                 path: '/jenkins',
                 name: 'jenkins',
                 meta: {
-                    title: "CI/CD管理",
+                    title: "自动化管理",
                     iconImg: new URL('@/assets/icons/project.png', import.meta.url).href
                 },
                 children: [
