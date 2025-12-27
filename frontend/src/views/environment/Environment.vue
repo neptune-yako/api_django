@@ -1,7 +1,11 @@
 <template>
-  <div class="main_box">
-    <!-- 左侧 -->
-    <div class="card left_box">
+  <div class="environment-wrapper">
+    <el-tabs v-model="activeTab" type="border-card" class="environment-tabs">
+      <!-- 测试环境配置 Tab -->
+      <el-tab-pane label="测试环境配置" name="environment">
+        <div class="main_box">
+          <!-- 左侧 -->
+          <div class="card left_box">
       <!-- 顶部标题 -->
       <div class="title_box">
         <img src="@/assets/icons/environment.png" width="25" alt="">
@@ -95,18 +99,23 @@
         </el-tab-pane>
       </el-tabs>
     </div>
-
-    <!-- 右侧 -->
-    <div class="card right_box">
-      <el-divider content-position="center"><b>全局工具函数</b></el-divider>
-      <Editor lang="python" v-model="env_global_func"></Editor>
-    </div>
   </div>
   <div class="button" v-show='EnvInfo.id'>
+    <el-button @click='openGlobalFuncDialog' type="info" plain icon='Edit'>编辑全局工具函数</el-button>
     <el-button @click='saveEnv' type="primary" plain icon='FolderChecked' :loading="isSaving" :disabled="isSaving">{{ EnvInfo.is_virtual ? '保存并创建' : '保存' }}</el-button>
     <el-button @click='copyEnv' type="primary" plain icon='DocumentCopy' v-if="!EnvInfo.is_virtual" :loading="isCopying" :disabled="isCopying">复制</el-button>
     <el-button @click='clickDeleteEnv' type="danger" plain icon='Delete' v-if="!EnvInfo.is_virtual" :loading="isDeleting" :disabled="isDeleting">删除</el-button>
   </div>
+      </el-tab-pane>
+
+      <!-- 服务器管理 Tab -->
+      <el-tab-pane label="服务器管理" name="server">
+        <ServerList></ServerList>
+      </el-tab-pane>
+    </el-tabs>
+  </div>
+
+
   
   <!-- 统一创建对话框 -->
   <el-dialog 
@@ -358,7 +367,36 @@
       </span>
     </template>
   </el-dialog>
+
+  <!-- 全局工具函数编辑对话框 -->
+  <el-dialog 
+    v-model="globalFuncDialogVisible" 
+    title="编辑全局工具函数" 
+    width="900px"
+    :close-on-click-modal="false"
+    top="5vh"
+  >
+    <div style="height: 70vh;">
+      <el-alert
+        title="提示"
+        type="info"
+        :closable="false"
+        show-icon
+        style="margin-bottom: 15px;"
+      >
+        全局工具函数可以在测试用例中被调用,支持Python语法
+      </el-alert>
+      <Editor lang="python" v-model="env_global_func" style="height: calc(100% - 60px);"></Editor>
+    </div>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="globalFuncDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveGlobalFunc" :loading="isSavingGlobalFunc">保存</el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
+
 
 <script setup>
 import http from '@/api/index'
@@ -368,6 +406,7 @@ import {ElMessage, ElMessageBox, ElNotification} from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import Editor from '@/components/Editor.vue'
 import DatabaseConfig from "@/views/environment/DatabaseConfig.vue"
+import ServerList from '@/views/jenkins/server/ServerList.vue'
 import {UserStore} from '@/stores/module/UserStore'
 import { 
   updateNodeIP, 
@@ -384,6 +423,7 @@ import {
 const uStore = UserStore()
 let envList = ref([])
 const pstore = ProjectStore()
+const activeTab = ref('environment')  // 当前激活的tab
 const isRefreshing = ref(false)
 
 // Loading状态
@@ -392,6 +432,10 @@ const isDeleting = ref(false)
 const isCopying = ref(false)
 const isLoading = ref(false)
 const isDeletingNode = ref(false)  // 删除Jenkins节点的loading状态
+const isSavingGlobalFunc = ref(false)  // 保存全局工具函数的loading状态
+
+// 全局工具函数对话框
+const globalFuncDialogVisible = ref(false)
 
 // 获取测试环境列表
 async function getEvnList() {
@@ -1295,7 +1339,74 @@ async function handleCreateNode() {
     isCreating.value = false
   }
 }
+
+// ==================== 全局工具函数管理 ====================
+
+// 打开全局工具函数编辑对话框
+function openGlobalFuncDialog() {
+  if (!EnvInfo.value.id) {
+    ElMessage.warning('请先选择一个测试环境')
+    return
+  }
+  globalFuncDialogVisible.value = true
+}
+
+// 保存全局工具函数
+async function saveGlobalFunc() {
+  try {
+    isSavingGlobalFunc.value = true
+    
+    // 如果是虚拟环境，提示需要先保存环境
+    if (EnvInfo.value.is_virtual) {
+      ElMessage.warning('请先保存环境后再编辑全局工具函数')
+      return
+    }
+    
+    const env_id = EnvInfo.value.id
+    const params = {
+      name: env_name.value,
+      host: env_host.value,
+      global_func: env_global_func.value,
+      db: JSON.parse(env_db.value),
+      headers: env_headers.value,
+      global_variable: env_global_variable.value,
+      debug_global_variable: env_debug_global_variable.value,
+    }
+    
+    const response = await http.environmentApi.updateEnvironment(env_id, params)
+    if (response.status === 200 && response.data.code !== 300) {
+      ElNotification({
+        title: '全局工具函数保存成功！',
+        type: 'success',
+        duration: 1500
+      })
+      
+      // 关闭对话框
+      globalFuncDialogVisible.value = false
+      
+      // 更新页面数据
+      await getEvnList()
+    } else {
+      ElNotification({
+        title: '保存失败！',
+        message: response.data.detail,
+        type: 'error',
+        duration: 1500
+      })
+    }
+  } catch (error) {
+    ElNotification({
+      title: '保存失败！',
+      message: error.message || '未知错误',
+      type: 'error',
+      duration: 1500
+    })
+  } finally {
+    isSavingGlobalFunc.value = false
+  }
+}
 </script>
+
 
 <style lang="scss" scoped>
 @use './environment.scss';

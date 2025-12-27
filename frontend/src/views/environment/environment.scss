@@ -1,20 +1,40 @@
+// 环境页面包装器
+.environment-wrapper {
+  height: 100%;
+  padding: 20px;
+}
+
+// 标签页样式
+.environment-tabs {
+  height: calc(100% - 40px);
+
+  :deep(.el-tabs__content) {
+    height: calc(100% - 55px);
+
+    .el-tab-pane {
+      height: 100%;
+      overflow-y: auto;
+    }
+  }
+}
+
 .main_box {
   height: 90%;
   display: flex;
 
-  // 中间样式
+  // 中间样式 - 现在占据全部可用空间
   .center_box {
-    width: 800px;
-  }
-
-  // 右侧样式
-  .right_box {
     flex: 1;
+    max-width: 1200px;
+    margin: 0 auto;
   }
 }
-.button{
+
+.button {
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: 10px; // 添加按钮之间的间距
   margin-top: 10px;
 }
 

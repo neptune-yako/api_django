@@ -1,13 +1,16 @@
 <template>
-  <div class="main_box">
-    <div class="card left_box">
-      <!-- 顶部标题 -->
-      <div class="title_box">
-        <img src="@/assets/icons/plan.png" width="25" alt="">
-        <div class="name">测试计划</div>
-        <el-button @click='addPlan' size="small" icon='CirclePlus' type="primary" plain>计划</el-button>
-        <el-button plain @click='pstore.getPlanList' type="success" icon="Refresh" size="small">刷新</el-button>
-      </div>
+  <div class="plan-wrapper">
+    <el-tabs v-model="activeTab" type="border-card" class="plan-tabs">
+      <el-tab-pane label="测试计划配置" name="plan">
+        <div class="main_box">
+          <div class="card left_box">
+            <!-- 顶部标题 -->
+            <div class="title_box">
+              <img src="@/assets/icons/plan.png" width="25" alt="">
+              <div class="name">测试计划</div>
+              <el-button @click='addPlan' size="small" icon='CirclePlus' type="primary" plain>计划</el-button>
+              <el-button plain @click='pstore.getPlanList' type="success" icon="Refresh" size="small">刷新</el-button>
+            </div>
 
       <!-- 计划列表 -->
       <el-menu :default-active="activePlan.id.toString()" v-if='pstore.planList.length>0'>
@@ -113,6 +116,12 @@
         </el-table>
       </div>
     </div>
+    </div>
+      </el-tab-pane>
+      <el-tab-pane label="任务管理" name="cicd">
+        <JobList />
+      </el-tab-pane>
+    </el-tabs>
   </div>
 
   <!-- 添加测试套件到测试计划中 -->
@@ -138,9 +147,11 @@ import {ElMessage, ElMessageBox, ElNotification} from 'element-plus'
 import http from '@/api/index'
 import {onMounted, ref, reactive} from 'vue'
 import {UserStore} from '@/stores/module/UserStore'
+import JobList from '@/views/jenkins/job/JobList.vue'
 
 const uStore = UserStore()
 const pstore = ProjectStore()
+const activeTab = ref('plan')
 // 已选择的测试计划
 let activePlan = ref({
   id: "",
