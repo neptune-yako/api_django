@@ -29,6 +29,11 @@
           />
         </el-tab-pane>
 
+        <!-- 图表 -->
+        <el-tab-pane label="图表" name="charts">
+          <ChartsView :execution="execution" :suites="suites" />
+        </el-tab-pane>
+
         <!-- 缺陷类别 -->
         <el-tab-pane label="缺陷类别" name="categories">
           <CategoryTable :categories="categories" />
@@ -63,6 +68,7 @@ import CaseList from './components/CaseList.vue'
 import CaseDetailDrawer from './components/CaseDetailDrawer.vue'
 import CategoryTable from './components/CategoryTable.vue'
 import ScenarioTable from './components/ScenarioTable.vue'
+import ChartsView from './components/ChartsView.vue'
 
 const route = useRoute()
 const router = useRouter()
