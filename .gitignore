@@ -84,3 +84,4 @@ backend/backend/settings_local.py
 # test_django/
 Ai_md/
 A_jiafang/
+*.zip

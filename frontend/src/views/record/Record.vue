@@ -74,8 +74,8 @@
       </div>
       </el-tab-pane>
 
-      <!-- Tab 2: Jenkins 测试报告 -->
-      <el-tab-pane label="Jenkins 测试报告" name="jenkins-report">
+      <!-- Tab 2: 自动化测试报告 -->
+      <el-tab-pane label="自动化测试报告" name="jenkins-report">
         <ReportList />
       </el-tab-pane>
     </el-tabs>
