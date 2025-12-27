@@ -168,10 +168,11 @@ const fetchDetail = async () => {
     const res = await getExecutionDetail(route.params.id)
     const data = res.data.data
     
-    execution.value = data.execution
-    suites.value = data.suites
-    categories.value = data.categories
-    scenarios.value = data.scenarios
+    // DRF Serializer 返回的是扁平结构，不再有 execution 嵌套
+    execution.value = data
+    suites.value = data.suites || []
+    categories.value = data.categories || []
+    scenarios.value = data.scenarios || []
   } catch (error) {
     console.error(error)
   } finally {

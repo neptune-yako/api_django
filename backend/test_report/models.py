@@ -159,6 +159,51 @@ class TestSuite(models.Model):
         return self.suite_name
 
 
+class TestSuiteDetail(models.Model):
+    """测试套件详情表 (test_suite_details) - 对应 SQL 中的 test_suite_details"""
+    execution = models.ForeignKey(TestExecution, on_delete=models.CASCADE, related_name='suite_details', verbose_name='关联的执行')
+    name = models.CharField(max_length=500, null=True, blank=True, verbose_name='用例名称')
+    description = models.TextField(null=True, blank=True, verbose_name='描述')
+    
+    # 层级信息
+    parent_suite = models.CharField(max_length=255, verbose_name='父套件')
+    suite = models.CharField(max_length=255, null=True, blank=True, verbose_name='套件')
+    sub_suite = models.CharField(max_length=255, null=True, blank=True, verbose_name='子套件')
+    
+    # 定位信息
+    test_class = models.CharField(max_length=255, null=True, blank=True, verbose_name='测试类')
+    test_method = models.CharField(max_length=255, null=True, blank=True, verbose_name='测试方法')
+    
+    # 执行状态
+    STATUS_CHOICES = (
+        ('passed', 'Passed'),
+        ('failed', 'Failed'),
+        ('skipped', 'Skipped'),
+        ('broken', 'Broken'),
+        ('unknown', 'Unknown'),
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unknown', verbose_name='状态')
+    
+    # 时间信息
+    start_time = models.CharField(max_length=100, null=True, blank=True, verbose_name='开始时间')
+    stop_time = models.CharField(max_length=100, null=True, blank=True, verbose_name='结束时间')
+    duration_in_ms = models.DecimalField(max_digits=12, decimal_places=3, default=0.000, verbose_name='耗时(ms)')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'test_suite_details'
+        verbose_name = '测试套件详情'
+        verbose_name_plural = verbose_name
+        indexes = [
+            models.Index(fields=['execution'], name='idx_execution_id'),
+            models.Index(fields=['parent_suite'], name='idx_parent_suite'),
+        ]
+
+    def __str__(self):
+        return self.name or f"Detail-{self.id}"
+
+
 class Category(models.Model):
     """类别表 (categories) - 对应 Allure Categories"""
     execution = models.ForeignKey(TestExecution, on_delete=models.CASCADE, related_name='categories', verbose_name='关联的执行')

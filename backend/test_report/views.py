@@ -2,6 +2,14 @@ from rest_framework.views import APIView
 from jenkins_integration.models import JenkinsJob
 from jenkins_integration.utils import R, ResponseCode
 from .services import TestReportService
+from .serializers import (
+    SyncReportRequestSerializer,
+    SyncJobBuildsRequestSerializer,
+    TestExecutionListSerializer,
+    TestExecutionDetailSerializer,
+    TestSuiteDetailSerializer
+)
+from .utils.permissions import CanSyncReport, CanViewReport
 import logging
 
 logger = logging.getLogger('django')
@@ -22,15 +30,19 @@ class SyncAllureReportView(APIView):
     # 目前不支持默认同步最后一次，必须明确指定构建号。
     # 通过JenkinsJob 模型中的server字段获取jenkins的认证信息。
     # 负责job的单次构建的同步。
+    permission_classes = [CanSyncReport]
+    
     def post(self, request):
-        job_name = request.data.get('job_name')
-        build_number = request.data.get('build_number')
+        # 1. 验证请求参数
+        serializer = SyncReportRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return R.bad_request(serializer.errors)
         
-        if not job_name or not build_number:
-            return R.bad_request("Missing job_name or build_number")
+        job_name = serializer.validated_data['job_name']
+        build_number = serializer.validated_data['build_number']
             
         try:
-            # 1. 查找 Job
+            # 2. 查找 Job
             job = JenkinsJob.objects.filter(name=job_name).first()
             if not job:
                 return R.error(
@@ -38,9 +50,8 @@ class SyncAllureReportView(APIView):
                     message=f"Job '{job_name}' not found"
                 )
                 
-            # 2. 调用 Service 拉取数据
-            # 注意：这里我们仅负责数据入库 test_report 表，不干扰 jenkins_integration 模块的原有逻辑
-            execution = TestReportService.save_report_from_jenkins(job, int(build_number))
+            # 3. 调用 Service 拉取数据
+            execution = TestReportService.save_report_from_jenkins(job, build_number)
             
             if execution:
                 return R.success(
@@ -67,14 +78,17 @@ class SyncJobBuildsView(APIView):
         "end_build": 100         // 可选，默认为最新构建号
     }
     """
+    permission_classes = [CanSyncReport]
+    
     def post(self, request):
-        job_name = request.data.get('job_name')
-        start_build = request.data.get('start_build', 1)
-        end_build = request.data.get('end_build')
+        # 1. 验证请求参数
+        serializer = SyncJobBuildsRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return R.bad_request(serializer.errors)
         
-        # 1. 参数校验
-        if not job_name:
-            return R.bad_request("缺少 job_name 参数")
+        job_name = serializer.validated_data['job_name']
+        start_build = serializer.validated_data.get('start_build', 1)
+        end_build = serializer.validated_data.get('end_build')
         
         try:
             # 2. 查询 JenkinsJob
@@ -182,6 +196,8 @@ class TestExecutionListView(APIView):
     - start_date: 开始日期（可选）
     - end_date: 结束日期（可选）
     """
+    permission_classes = [CanViewReport]
+    
     def get(self, request):
         from .models import TestExecution
         from backend.pagination import MyPaginator
@@ -193,42 +209,22 @@ class TestExecutionListView(APIView):
             start_date = request.query_params.get('start_date')
             end_date = request.query_params.get('end_date')
             
-            # 1. 获取查询参数
-            server_id = request.query_params.get('server_id')
-            job_id = request.query_params.get('job_id')
-            start_date = request.query_params.get('start_date')
-            end_date = request.query_params.get('end_date')
-            
             # 2. 使用自定义 Manager 进行链式查询
             queryset = (TestExecution.objects
+                        .select_related('job')
                         .filter_by_server(server_id)
                         .filter_by_job(job_id)
                         .filter_by_date_range(start_date, end_date)
                         .order_by('-created_at'))
-
             
             # 3. 分页
             paginator = MyPaginator()
             page = paginator.paginate_queryset(queryset, request)
             
             # 4. 序列化数据
-            items = []
-            for execution in page:
-                items.append({
-                    'id': execution.id,
-                    'timestamp': execution.timestamp,
-                    'report_title': execution.report_title,
-                    'job_name': execution.job.name if execution.job else None,
-                    'total_cases': execution.total_cases,
-                    'passed_cases': execution.passed_cases,
-                    'failed_cases': execution.failed_cases,
-                    'pass_rate': float(execution.pass_rate),
-                    'execution_time': execution.execution_time,
-                    'status': execution.status,
-                    'created_at': execution.created_at.isoformat()
-                })
+            serializer = TestExecutionListSerializer(page, many=True)
             
-            return paginator.get_paginated_response(items)
+            return paginator.get_paginated_response(serializer.data)
             
         except Exception as e:
             logger.error(f"[TestReport] 查询执行列表失败: {str(e)}")
@@ -240,68 +236,21 @@ class TestExecutionDetailView(APIView):
     查询测试执行详情接口
     GET /api/test-report/executions/{execution_id}/
     """
+    permission_classes = [CanViewReport]
+    
     def get(self, request, execution_id):
         from .models import TestExecution
         
         try:
-            # 1. 查询 TestExecution
+            # 1. 查询 TestExecution（优化查询性能）
             execution = TestExecution.objects.prefetch_related(
                 'suites', 'categories', 'scenarios'
-            ).get(id=execution_id)
+            ).select_related('job').get(id=execution_id)
             
-            # 2. 序列化数据
-            data = {
-                'execution': {
-                    'id': execution.id,
-                    'timestamp': execution.timestamp,
-                    'report_title': execution.report_title,
-                    'job_name': execution.job.name if execution.job else None,
-                    'total_cases': execution.total_cases,
-                    'passed_cases': execution.passed_cases,
-                    'failed_cases': execution.failed_cases,
-                    'skipped_cases': execution.skipped_cases,
-                    'broken_cases': execution.broken_cases,
-                    'unknown_cases': execution.unknown_cases,
-                    'pass_rate': float(execution.pass_rate),
-                    'execution_time': execution.execution_time,
-                    'start_time': execution.start_time.isoformat() if execution.start_time else None,
-                    'end_time': execution.end_time.isoformat() if execution.end_time else None,
-                    'status': execution.status,
-                    'created_at': execution.created_at.isoformat()
-                },
-                'suites': [
-                    {
-                        'suite_name': suite.suite_name,
-                        'total_cases': suite.total_cases,
-                        'passed_cases': suite.passed_cases,
-                        'failed_cases': suite.failed_cases,
-                        'pass_rate': float(suite.pass_rate),
-                        'duration_seconds': float(suite.duration_seconds)
-                    }
-                    for suite in execution.suites.all()
-                ],
-                'categories': [
-                    {
-                        'category_name': cat.category_name,
-                        'count': cat.count,
-                        'severity': cat.severity,
-                        'description': cat.description
-                    }
-                    for cat in execution.categories.all()
-                ],
-                'scenarios': [
-                    {
-                        'scenario_name': scn.scenario_name,
-                        'total': scn.total,
-                        'passed': scn.passed,
-                        'failed': scn.failed,
-                        'pass_rate': float(scn.pass_rate)
-                    }
-                    for scn in execution.scenarios.all()
-                ]
-            }
+            # 2. 使用序列化器
+            serializer = TestExecutionDetailSerializer(execution)
             
-            return R.success(data=data)
+            return R.success(data=serializer.data)
             
         except TestExecution.DoesNotExist:
             return R.error(
@@ -310,4 +259,66 @@ class TestExecutionDetailView(APIView):
             )
         except Exception as e:
             logger.error(f"[TestReport] 查询执行详情失败: {str(e)}")
+            return R.internal_error(str(e))
+
+
+class TestSuiteDetailListView(APIView):
+    """
+    查询测试用例详情列表接口
+    GET /api/test-report/executions/{execution_id}/cases/
+    
+    Query Params:
+    - parent_suite: 按父套件筛选（可选）
+    - status: 按状态筛选（可选，如 passed, failed）
+    """
+    permission_classes = [CanViewReport]
+    
+    def get(self, request, execution_id):
+        from .models import TestExecution, TestSuiteDetail
+        from django.db import models
+        
+        try:
+            # 1. 验证 Execution 是否存在
+            if not TestExecution.objects.filter(id=execution_id).exists():
+                return R.error(
+                    code=ResponseCode.NOT_FOUND,
+                    message=f"Execution ID [{execution_id}] 不存在"
+                )
+            
+            # 2. 查询用例详情
+            queryset = TestSuiteDetail.objects.filter(execution_id=execution_id)
+            
+            # 3. 可选筛选
+            parent_suite = request.query_params.get('parent_suite')
+            status = request.query_params.get('status')
+            
+            if parent_suite:
+                queryset = queryset.filter(parent_suite=parent_suite)
+            if status:
+                queryset = queryset.filter(status=status)
+            
+            # 4. 排序（失败的在前）
+            queryset = queryset.order_by(
+                models.Case(
+                    models.When(status='failed', then=0),
+                    models.When(status='broken', then=1),
+                    models.When(status='skipped', then=2),
+                    models.When(status='passed', then=3),
+                    default=4,
+                    output_field=models.IntegerField()
+                ),
+                'parent_suite', 'suite', 'test_method'
+            )
+            
+            # 5. 序列化
+            serializer = TestSuiteDetailSerializer(queryset, many=True)
+            
+            return R.success(data={
+                'execution_id': execution_id,
+                'total_count': queryset.count(),
+                'cases': serializer.data
+            })
+            
+        except Exception as e:
+            logger.error(f"[TestReport] 查询用例详情失败: {str(e)}")
             return R.internal_error(str(e))
