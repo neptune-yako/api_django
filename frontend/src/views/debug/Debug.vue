@@ -182,11 +182,11 @@ const caseData = reactive({
     method: "get",
     url: ""
   },
-  headers: "{}",
+  headers: {},
   request: {
-    json: '{}',
-    data: '{}',
-    params: '{}'
+    json: {},
+    data: {},
+    params: {}
   },
   file: [],
   setup_script: '# 前置脚本(python)\n# global_func：全局工具函数\n# data：用例数据 \n# env：临时环境\n# ENV：全局环境\n' +
