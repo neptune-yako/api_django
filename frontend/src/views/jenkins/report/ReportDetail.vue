@@ -59,7 +59,7 @@
 
         <!-- 图表 -->
         <el-tab-pane label="图表" name="charts">
-          <ChartsView :execution="execution" :suites="suites" />
+          <ChartsView :execution="execution" :suites="suites" :is-active="activeTab === 'charts'" />
         </el-tab-pane>
 
         <!-- 缺陷类别 -->

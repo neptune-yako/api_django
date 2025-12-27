@@ -1,5 +1,5 @@
 <template>
-  <div class="charts-container">
+  <div v-show="isActive" class="charts-container">
     <el-row :gutter="20">
       <!-- 状态分布饼图 -->
       <el-col :span="12">
@@ -29,7 +29,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
+import { ref, onMounted, watch, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
 
 const props = defineProps({
@@ -40,6 +40,10 @@ const props = defineProps({
   suites: {
     type: Array,
     default: () => []
+  },
+  isActive: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -193,13 +197,65 @@ const initSuiteBarChart = () => {
 
 // 监听数据变化,重新渲染图表
 watch(() => [props.execution, props.suites], () => {
-  if (statusPieChart) {
-    initStatusPieChart()
-  }
-  if (suiteBarChart) {
-    initSuiteBarChart()
-  }
+  updateStatusPieChart()
+  updateSuiteBarChart()
 }, { deep: true })
+
+// 更新状态分布饼图数据
+const updateStatusPieChart = () => {
+  if (!statusPieChart) return
+
+  const option = {
+    series: [{
+      data: [
+        {
+          value: props.execution.passed_cases || 0,
+          name: '通过',
+          itemStyle: { color: '#67c23a' }
+        },
+        {
+          value: props.execution.failed_cases || 0,
+          name: '失败',
+          itemStyle: { color: '#f56c6c' }
+        },
+        {
+          value: props.execution.skipped_cases || 0,
+          name: '跳过',
+          itemStyle: { color: '#e6a23c' }
+        },
+        {
+          value: props.execution.broken_cases || 0,
+          name: '中断',
+          itemStyle: { color: '#f56c6c' }
+        },
+        {
+          value: props.execution.unknown_cases || 0,
+          name: '未知',
+          itemStyle: { color: '#909399' }
+        }
+      ].filter(item => item.value > 0)
+    }]
+  }
+  statusPieChart.setOption(option)
+}
+
+// 更新套件通过率柱状图数据
+const updateSuiteBarChart = () => {
+  if (!suiteBarChart) return
+
+  const suiteNames = props.suites.map(s => s.suite_name)
+  const passRates = props.suites.map(s => parseFloat(s.pass_rate))
+
+  const option = {
+    xAxis: {
+      data: suiteNames
+    },
+    series: [{
+      data: passRates
+    }]
+  }
+  suiteBarChart.setOption(option)
+}
 
 // 窗口大小改变时,自适应图表
 const handleResize = () => {
@@ -207,15 +263,38 @@ const handleResize = () => {
   suiteBarChart?.resize()
 }
 
+// 初始化图表（等待 DOM 渲染完成）
+const initCharts = async () => {
+  await nextTick()
+  // 再次确保 DOM 有有效尺寸
+  await new Promise(resolve => setTimeout(resolve, 50))
+
+  if (!statusPieChart && statusPieRef.value?.clientWidth > 0) {
+    initStatusPieChart()
+  }
+  if (!suiteBarChart && suiteBarRef.value?.clientWidth > 0) {
+    initSuiteBarChart()
+  }
+}
+
+// 监听 tab 激活状态
+watch(() => props.isActive, (active) => {
+  if (active) {
+    initCharts()
+  }
+}, { immediate: true })
+
 onMounted(() => {
-  initStatusPieChart()
-  initSuiteBarChart()
+  // 如果已经是激活状态，立即初始化
+  if (props.isActive) {
+    initCharts()
+  }
   window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
-  statusPieChart?.dispose()
-  suiteBarChart?.dispose()
+  statusPieChart?.dispose?.()
+  suiteBarChart?.dispose?.()
   window.removeEventListener('resize', handleResize)
 })
 </script>
